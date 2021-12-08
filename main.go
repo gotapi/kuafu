@@ -253,6 +253,9 @@ func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 	w.Write(_data)
 }
 
+func redirect(w http.ResponseWriter, r *http.Request, redirectUrl string) {
+	http.Redirect(w, r, redirectUrl, http.StatusFound)
+}
 func (self WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	hostSeg := r.Host
@@ -288,25 +291,24 @@ func (self WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cookieToken, er := r.Cookie("_wjCookie")
-	if er != nil {
-		log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
-		w.WriteHeader(502)
-		return
-	}
-
 	hostRule, okRule := ruleMap[queryHost]
 	if !okRule {
 		log.Printf("Authentication Rule of %v not exists", queryHost)
 	} else {
 
 	}
+	cookieToken, er := r.Cookie("_wjCookie")
+	if er != nil {
+		log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
+		redirect(w, r, hostRule.LoginUrl)
+		return
+	}
 
 	jwtToken, errToken := ParseToken(cookieToken.Value, hostRule.Secret)
 	if errToken != nil {
 		log.Printf("jwt Token parse failed:%v,host:%v,path:%v,error:%v",
 			cookieToken.Value, r.Host, r.URL.Path, errToken)
-		w.WriteHeader(502)
+		redirect(w, r, hostRule.LoginUrl)
 	} else {
 		log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
 	}
