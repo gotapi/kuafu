@@ -8,3 +8,6 @@ current:
 
 run:
 	sh ./test.sh
+	
+build:
+	go build -o ./wujing ./main.go
