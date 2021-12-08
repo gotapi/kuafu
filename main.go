@@ -126,7 +126,8 @@ func StartProxyService(addr string) {
 	CheckErr(err)
 }
 func Normalize(hostname string) string {
-	return strings.ReplaceAll(hostname, ".", "-")
+	return strings.ToLower(hostname)
+	//return strings.ReplaceAll(hostname, ".", "-")
 }
 
 func GetAllBackends(hostname string) string {
