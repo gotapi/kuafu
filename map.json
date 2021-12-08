@@ -5,8 +5,13 @@
         "IP": "172.19.134.158",
         "Port": 8500
       }
-    ]
-  ,
+    ],
+  "admin-grafana.biying88.cn": [
+    {
+      "IP": "172.19.134.149",
+      "Port": 3000
+    }
+  ],
   "example.com": [
       {
         "IP": "baidu.com",

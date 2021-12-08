@@ -4,5 +4,11 @@
     "Secret": "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummy",
     "RequiredField": "Mobile",
     "LoginUrl": "https://qwlogin.biying88.cn/api/login?_rtUrl=https://admin-consul.biying88.cn/"
+  },
+  "admin-grafana.biying88.cn": {
+    "Method": "cookie-jwt",
+    "Secret": "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummy",
+    "RequiredField": "Mobile",
+    "LoginUrl": "https://qwlogin.biying88.cn/api/login?_rtUrl=https://admin-grafana.biying88.cn/"
   }
 }
