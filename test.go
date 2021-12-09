@@ -9,10 +9,9 @@ import (
 // and validating.
 
 func vmain() {
-	secret := "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummy"
+	secret := "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well"
 	// sample token string taken from the New example
-	tokenString := "eyJhbGciOiJIUzI1NiJ9.eyJtb2JpbGUiOiIxODAwNjc4NzY5MCIsImVtYWlsIjoieHVyZW5sdUAxMjYuY29tIn0.pqWQ323it2hP0h3IpHhF5Ber5vnh0Oboukh-XfxiqY0"
-	tokenString = "eyJhbGciOiJIUzI1NiJ9.eyJtb2JpbGUiOiIxODAwNjc4NzY5MCIsIm5hbWUiOiLlvpDku4HnpoQiLCJ1c2VySWQiOiJ4dXJlbmx1IiwiZW1haWwiOiJ4dXJlbmx1QDEyNi5jb20ifQ.bF5IL6tgbDDfb9EH4zgZuahLZQWOpNsdjlo7ErISHbE"
+	tokenString := "eyJhbGciOiJIUzUxMiJ9.eyJtb2JpbGUiOiIxODAwNjc4NzY5MCIsIm5hbWUiOiLlvpDku4HnpoQiLCJ1c2VySWQiOiJ4dXJlbmx1IiwiZW1haWwiOiJ4dXJlbmx1QDEyNi5jb20ifQ.oGwVuAaThLtOWFmvxjd12lkFePZfw1TV2ljaN3NZqUGenFxVeiu3_ScBw-s0Rf9PmzoUM9rUnkxyBIaPM0s0Rw"
 
 	token, err := ParseToken(tokenString, secret)
 	if err != nil {
