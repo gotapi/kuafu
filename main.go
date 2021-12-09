@@ -297,7 +297,7 @@ func (self WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	} else {
 
 	}
-	cookieToken, er := r.Cookie("_wjCookie")
+	cookieToken, er := r.Cookie("_wjToken")
 	if er != nil {
 		log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
 		redirect(w, r, hostRule.LoginUrl)
