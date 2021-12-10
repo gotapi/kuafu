@@ -29,20 +29,17 @@ type CustomClaims struct {
 }
 
 type ServiceInfo struct {
-	IP             string
-	Port           int
-	CpuLoad        float64 `json:"CpuLoad"`
-	TotalMem       uint64  `json:"TotalMem"`
-	FreeMem        uint64  `json:"FreeMem"`
-	UsedPercentMem float64 `json:"UsedPercentMem"`
-	Timestamp      int     `json:"ts"`
+	IP        string
+	Port      int
+	CpuLoad   float64 `json:"CpuLoad,omitempty"`
+	Timestamp int     `json:"ts,omitempty"`
 }
 
 type Authentication struct {
-	Method        string
+	Method        string `json:"method,omitempty"`
 	Secret        string `json:"-"`
-	RequiredField string
-	LoginUrl      string
+	RequiredField string `json:"RequiredField,omitempty"`
+	LoginUrl      string `json:"loginUrl,omitempty"`
 }
 
 type ServiceList []ServiceInfo
