@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,7 +40,7 @@ type ServiceInfo struct {
 
 type Authentication struct {
 	Method        string
-	Secret        string
+	Secret        string `json:"-"`
 	RequiredField string
 	LoginUrl      string
 }
@@ -81,6 +83,40 @@ const (
 	RandHash  = "RandHash"
 	LoadRound = "LoadRound"
 )
+
+var privateIPBlocks []*net.IPNet
+var basicUser, basicPass string
+
+func Init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",    // IPv4 loopback
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+		"169.254.0.0/16", // RFC3927 link-local
+		"::1/128",        // IPv6 loopback
+		"fe80::/10",      // IPv6 link-local
+		"fc00::/7",       // IPv6 unique local addr
+	} {
+		_, block, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
+		}
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+}
+
+func isPrivateIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 func Quit() {
 	os.Exit(0)
@@ -237,12 +273,20 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	runes := []rune(path)
-	start := len("/__backend/")
+	start := len("/_wujing/_dash/backend/")
 	queryHost := string(runes[start:len(path)])
 	backends := GetAllBackends(queryHost)
 	w.Write([]byte(backends))
 }
-
+func HandleAllRules(w http.ResponseWriter, r *http.Request) {
+	_data, er := json.Marshal(ruleMap)
+	if er != nil {
+		msg := "{'code':401,msg:'cna't json_encode ruleMap '}"
+		w.Write([]byte(msg))
+		return
+	}
+	w.Write(_data)
+}
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(serviceMap)
 	if er != nil {
@@ -256,7 +300,20 @@ func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 func redirect(w http.ResponseWriter, r *http.Request, redirectUrl string) {
 	http.Redirect(w, r, redirectUrl, http.StatusFound)
 }
-func (self WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func requestBasicAuthentication(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+}
+func notPrivateIP(w http.ResponseWriter) {
+	http.Error(w, "you are not from private network", http.StatusUnauthorized)
+}
+func getIp(r *http.Request) net.IP {
+	index := strings.LastIndex(r.RemoteAddr, ":")
+	ipStr := r.RemoteAddr[:index]
+	ip := net.ParseIP(ipStr)
+	return ip
+}
+func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
@@ -268,91 +325,152 @@ func (self WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	if queryHost == "" {
 		queryHost = hostSeg
 	}
+	if strings.HasPrefix(r.URL.Path, "/_wujing/_dash") {
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			requestBasicAuthentication(w, r)
+			return
+		}
+		usernameHash := sha256.Sum256([]byte(username))
+		passwordHash := sha256.Sum256([]byte(password))
+		expectedUsernameHash := sha256.Sum256([]byte(basicUser))
+		expectedPasswordHash := sha256.Sum256([]byte(basicPass))
 
-	if strings.HasPrefix(r.URL.Path, "/__backends") {
-		HandleAllBackends(w, r)
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/__status") {
-		StatusHandler(w, r)
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/__backend/") {
-		GetBackendsHandle(w, r)
-		return
-	}
-
-	if strings.HasPrefix(r.URL.Path, "/__hashMethods") {
-		showHashMethodsHandle(w, r)
-		return
-	}
-	if strings.HasPrefix(r.URL.Path, "/__hashMethod") {
-		updateHashHandle(w, r)
-		return
+		/**
+		知识点:
+		在Go中（和大多数语言一样），普通的==比较运算符一旦发现两个字符串之间有差异，就会立即返回。
+		因此，如果第一个字符是不同的，它将在只看一个字符后返回。从理论上讲，这为定时攻击提供了机会，
+		攻击者可以向你的应用程序发出大量请求，并查看平均响应时间的差异。他们收到401响应所需的时间
+		可以有效地告诉他们有多少字符是正确的，如果有足够的请求，他们可以建立一个完整的用户名和密码
+		的画像。像网络抖动这样的事情使得这种特定的攻击很难实现，但远程定时攻击已经成为现实，而且在
+		未来可能变得更加可行。考虑到这个因素我们可以通过使用subtle.ConstantTimeCompare()很容
+		易地防范这种风险，这样做是有意义的。
+		*/
+		usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
+		passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
+		if !usernameMatch || !passwordMatch {
+			requestBasicAuthentication(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/rules") {
+			HandleAllRules(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/backends") {
+			HandleAllBackends(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/status") {
+			StatusHandler(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/backend/") {
+			GetBackendsHandle(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/hashMethods") {
+			showHashMethodsHandle(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/hashMethod") {
+			updateHashHandle(w, r)
+			return
+		}
 	}
 
 	hostRule, okRule := ruleMap[queryHost]
-	if !okRule {
-		log.Printf("Authentication Rule of %v not exists", queryHost)
+	authenticateMethod := "none"
+	if okRule {
+		authenticateMethod = hostRule.Method
 	} else {
-
+		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
 	}
-	cookieToken, er := r.Cookie("_wjToken")
-	if er != nil {
-		log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
-		redirect(w, r, hostRule.LoginUrl)
-		return
-	}
-
-	jwtToken, errToken := ParseToken(cookieToken.Value, hostRule.Secret)
-	if errToken != nil {
-		log.Printf("jwt Token parse failed:%v,host:%v,path:%v,error:%v",
-			cookieToken.Value, r.Host, r.URL.Path, errToken)
-		redirect(w, r, hostRule.LoginUrl)
-	} else {
-		log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
-	}
-
-	if hostRule.RequiredField == "Name" || hostRule.RequiredField == "name" {
-		if len(jwtToken.Name) == 0 {
-			w.WriteHeader(302)
-			http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+	if authenticateMethod == "private-ip" {
+		ip := getIp(r)
+		if ip == nil {
+			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
+			return
+		}
+		if !isPrivateIP(ip) {
+			notPrivateIP(w)
 			return
 		}
 	}
-
-	if hostRule.RequiredField == "Email" || hostRule.RequiredField == "email" {
-		if len(jwtToken.Email) == 0 {
-			w.WriteHeader(302)
-			http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
-			return
+	if authenticateMethod == "cookie-jwt" || authenticateMethod == "authorization-jwt" {
+		var theToken string
+		var cookie *http.Cookie
+		var er error
+		if authenticateMethod == "cookie-jwt" {
+			cookie, er = r.Cookie("_wjToken")
+			if er != nil {
+				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
+				redirect(w, r, hostRule.LoginUrl)
+				return
+			}
+			theToken = cookie.Value
 		}
-	}
-
-	if hostRule.RequiredField == "UserId" || hostRule.RequiredField == "userId" {
-		if len(jwtToken.UserId) == 0 {
-			w.WriteHeader(302)
-			http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
-			return
+		if authenticateMethod == "authorization-jwt" {
+			var authorizations, _authorizationOk = r.Header["Authorization"]
+			if _authorizationOk {
+				theToken = authorizations[0]
+			} else {
+				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
+				redirect(w, r, hostRule.LoginUrl)
+				return
+			}
 		}
-	}
 
-	if hostRule.RequiredField == "Mobile" || hostRule.RequiredField == "mobile" {
-		if len(jwtToken.Mobile) == 0 {
-			w.WriteHeader(302)
-			http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+		jwtToken, errToken := ParseToken(theToken, hostRule.Secret)
+		if errToken != nil {
+			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,error:%v",
+				theToken, r.Host, r.URL.Path, errToken)
+			redirect(w, r, hostRule.LoginUrl)
 			return
+		} else {
+			log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
 		}
-	}
 
-	if hostRule.RequiredField == "Subject" || hostRule.RequiredField == "subject" {
-		if len(jwtToken.Subject) == 0 {
-			w.WriteHeader(302)
-			http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
-			return
+		if hostRule.RequiredField == "Name" || hostRule.RequiredField == "name" {
+			if len(jwtToken.Name) == 0 {
+				w.WriteHeader(302)
+				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				return
+			}
 		}
-	}
 
+		if hostRule.RequiredField == "Email" || hostRule.RequiredField == "email" {
+			if len(jwtToken.Email) == 0 {
+				w.WriteHeader(302)
+				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				return
+			}
+		}
+
+		if hostRule.RequiredField == "UserId" || hostRule.RequiredField == "userId" {
+			if len(jwtToken.UserId) == 0 {
+				w.WriteHeader(302)
+				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				return
+			}
+		}
+
+		if hostRule.RequiredField == "Mobile" || hostRule.RequiredField == "mobile" {
+			if len(jwtToken.Mobile) == 0 {
+				w.WriteHeader(302)
+				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				return
+			}
+		}
+
+		if hostRule.RequiredField == "Subject" || hostRule.RequiredField == "subject" {
+			if len(jwtToken.Subject) == 0 {
+				w.WriteHeader(302)
+				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				return
+			}
+		}
+
+	}
 	var ip string
 
 	if len(r.Header["X-Real-Ip"]) < 1 {
@@ -442,11 +560,15 @@ func main() {
 
 	var mapFile string
 	var ruleFile string
+
+	Init()
 	flag.StringVar(&mapFile, "map_file", "./map.json", " the json file of service map")
 	flag.StringVar(&ruleFile, "rule_file", "./rule.json", "rule json file path")
 	flag.BoolVar(&testOnly, "test", false, "test mode; parse the serviceMap file")
 	flag.StringVar(&proxyAddr, "proxy_addr", "0.0.0.0:5577", "start a proxy and transfer to backend")
 	flag.StringVar(&errorLogFile, "error_log", "/var/log/wujing/wujing.error.log", "log file position")
+	flag.StringVar(&basicUser, "basic_user", "admin", "username of basic Authentication ")
+	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
 	flag.Parse()
 
 	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
