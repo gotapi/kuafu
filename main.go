@@ -35,10 +35,10 @@ type ServiceInfo struct {
 }
 
 type Authentication struct {
-	Method        string `json:"method,omitempty"`
-	Secret        string `json:"-"`
+	Method        string `json:"Method,omitempty"`
+	Secret        string
 	RequiredField string `json:"RequiredField,omitempty"`
-	LoginUrl      string `json:"loginUrl,omitempty"`
+	LoginUrl      string `json:"LoginUrl,omitempty"`
 }
 
 type ServiceList []ServiceInfo
