@@ -418,8 +418,8 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		jwtToken, errToken := ParseToken(theToken, hostRule.Secret)
 		if errToken != nil {
-			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,error:%v",
-				theToken, r.Host, r.URL.Path, errToken)
+			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
+				theToken, r.Host, r.URL.Path, hostRule.Secret, errToken)
 			redirect(w, r, hostRule.LoginUrl)
 			return
 		} else {
