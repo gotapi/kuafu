@@ -22,7 +22,6 @@ import (
 
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
-	Mobile string `json:"mobile,omitempty"`
 	Name   string `json:"name,omitempty"`
 	UserId string `json:"userId,omitempty"`
 	jwt.StandardClaims
@@ -450,15 +449,6 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
-		if hostRule.RequiredField == "Mobile" || hostRule.RequiredField == "mobile" {
-			if len(jwtToken.Mobile) == 0 {
-				w.WriteHeader(302)
-				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
-				return
-			}
-		}
-
 		if hostRule.RequiredField == "Subject" || hostRule.RequiredField == "subject" {
 			if len(jwtToken.Subject) == 0 {
 				w.WriteHeader(302)

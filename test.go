@@ -11,7 +11,7 @@ import (
 func vmain() {
 	secret := "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well"
 	// sample token string taken from the New example
-	tokenString := "eyJhbGciOiJIUzUxMiJ9.eyJtb2JpbGUiOiIxODAwNjc4NzY5MCIsIm5hbWUiOiLlvpDku4HnpoQiLCJ1c2VySWQiOiJ4dXJlbmx1IiwiZW1haWwiOiJ4dXJlbmx1QDEyNi5jb20ifQ.oGwVuAaThLtOWFmvxjd12lkFePZfw1TV2ljaN3NZqUGenFxVeiu3_ScBw-s0Rf9PmzoUM9rUnkxyBIaPM0s0Rw"
+	tokenString := "eyJhbGciOiJIUzUxMiJ9.eyJuYW1lIjoi5b6Q5LuB56aEIiwicmVmcmVzaCI6MTYzOTI5ODk1MjQ3OCwidXNlcklkIjoieHVyZW5sdV9uZXciLCJlbWFpbCI6Inh1cmVubHVAaHVhc2hlbmdmZS5jb20iLCJleHAiOjE2Mzk5MDE5NTIsImlhdCI6MTYzOTI5NzE1Mn0.Kkn9YIyybvUDwM-PXeABew73U5qXfkefkG2oaEt_vkrKa9o1FP5J_riPd32BejBAsrkaqrpUxMMKciQBTG0Gsg"
 
 	token, err := ParseToken(tokenString, secret)
 	if err != nil {
