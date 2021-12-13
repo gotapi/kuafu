@@ -43,6 +43,14 @@ qwLogin项目目前在qwlogin.biying88.cn上运行，有api/login和api/callback
 - **/_wujing/_dash/hashMethods** 暴露所有的hash方法；
 在访问这些地址时，需要http basic authentication 认证，用户名、密码在启动的时候以命令行方式传入。
 
+### 后端轮询方法
+在配置后端寻址的时候，可以指定寻址方案；
+寻址方案一共有这几个:
+- LoadHash 按负载寻址，找负载最低的后端来服务。（暂未支持，因为没有收集后端负载情况）
+- IPHash 按IP Hash,相同IP的请求，会Hash到同一个后端;
+- UrlHash 按UrlHash,相同Url的请求，会hash到同一个后端；
+- RandHash 默认的寻址方式 ，随机拎一个后端出来服务。
+
 ### 启动参数
 
 ```
