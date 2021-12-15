@@ -35,10 +35,13 @@ type ServiceInfo struct {
 }
 
 type Authentication struct {
-	Method        string `json:"Method,omitempty"`
-	Secret        string
-	RequiredField string `json:"RequiredField,omitempty"`
-	LoginUrl      string `json:"LoginUrl,omitempty"`
+	Method            string `json:"Method,omitempty"`
+	Secret            string
+	RequiredField     string `json:"RequiredField,omitempty"`
+	LoginUrl          string `json:"LoginUrl,omitempty"`
+	AuthName          string
+	AuthPass          string
+	BackendHashMethod string
 }
 
 type ServiceList []ServiceInfo
@@ -159,7 +162,6 @@ func StartProxyService(addr string) {
 }
 func Normalize(hostname string) string {
 	return strings.ToLower(hostname)
-	//return strings.ReplaceAll(hostname, ".", "-")
 }
 
 func GetAllBackends(hostname string) string {
@@ -176,7 +178,8 @@ func GetAllBackends(hostname string) string {
 	}
 	return ""
 }
-func GetBackendServerByHostName(hostnameOriginal string, ip string, path string) string {
+func GetBackendServerByHostName(hostnameOriginal string, ip string, path string, method string) string {
+
 	hostname := Normalize(hostnameOriginal)
 	data := serviceMap[Normalize(hostname)]
 	if data == nil {
@@ -188,10 +191,6 @@ func GetBackendServerByHostName(hostnameOriginal string, ip string, path string)
 		return ""
 	}
 
-	method, ok := HashMethodMap[hostname]
-	if !ok {
-		method = RandHash
-	}
 	var server ServiceInfo
 	/**
 	随机分一台
@@ -322,29 +321,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		queryHost = hostSeg
 	}
 	if strings.HasPrefix(r.URL.Path, "/_wujing/_dash") {
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			requestBasicAuthentication(w, r)
-			return
-		}
-		usernameHash := sha256.Sum256([]byte(username))
-		passwordHash := sha256.Sum256([]byte(password))
-		expectedUsernameHash := sha256.Sum256([]byte(basicUser))
-		expectedPasswordHash := sha256.Sum256([]byte(basicPass))
-
-		/**
-		知识点:
-		在Go中（和大多数语言一样），普通的==比较运算符一旦发现两个字符串之间有差异，就会立即返回。
-		因此，如果第一个字符是不同的，它将在只看一个字符后返回。从理论上讲，这为定时攻击提供了机会，
-		攻击者可以向你的应用程序发出大量请求，并查看平均响应时间的差异。他们收到401响应所需的时间
-		可以有效地告诉他们有多少字符是正确的，如果有足够的请求，他们可以建立一个完整的用户名和密码
-		的画像。像网络抖动这样的事情使得这种特定的攻击很难实现，但远程定时攻击已经成为现实，而且在
-		未来可能变得更加可行。考虑到这个因素我们可以通过使用subtle.ConstantTimeCompare()很容
-		易地防范这种风险，这样做是有意义的。
-		*/
-		usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
-		passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
-		if !usernameMatch || !passwordMatch {
+		if !h.checkBasicAuth(w, r, basicUser, basicPass) {
 			requestBasicAuthentication(w, r)
 			return
 		}
@@ -368,7 +345,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			showHashMethodsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/hashMethod") {
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/update/hashMethod") {
 			updateHashHandle(w, r)
 			return
 		}
@@ -376,10 +353,21 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	hostRule, okRule := ruleMap[queryHost]
 	authenticateMethod := "none"
+	backendHashMethod := RandHash
 	if okRule {
 		authenticateMethod = hostRule.Method
+		backendHashMethod = hostRule.BackendHashMethod
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
+	}
+	if backendHashMethod == "" {
+		backendHashMethod = RandHash
+	}
+	if authenticateMethod == "basic" {
+		if !h.checkBasicAuth(w, r, hostRule.AuthName, hostRule.AuthPass) {
+			requestBasicAuthentication(w, r)
+			return
+		}
 	}
 	if authenticateMethod == "private-ip" {
 		ip := getIp(r)
@@ -467,17 +455,18 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ip = r.Header["X-Real-Ip"][0]
 	}
 
-	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path)
-	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path)
+	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
+	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
 		w.WriteHeader(504)
 		return
 	}
-
+	log.Printf("backend host:%v", backend)
 	peer, err := net.Dial("tcp", backend)
 	if err != nil {
 		log.Printf("dial upstream error:%v", err)
 		w.WriteHeader(503)
+		w.Write([]byte(fmt.Sprintf("dial upstream error:%v", err)))
 		return
 	}
 	if err := r.Write(peer); err != nil {
@@ -540,6 +529,29 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+/**
+检查是否通过了http basic 认证，通过了返回true,不通过返回false
+*/
+func (h WuJingHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		requestBasicAuthentication(w, r)
+		return false
+	}
+	usernameHash := sha256.Sum256([]byte(username))
+	passwordHash := sha256.Sum256([]byte(password))
+	expectedUsernameHash := sha256.Sum256([]byte(name))
+	expectedPasswordHash := sha256.Sum256([]byte(pass))
+
+	usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
+	passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
+	if !usernameMatch || !passwordMatch {
+		requestBasicAuthentication(w, r)
+		return false
+	}
+	return true
+}
+
 func main() {
 	var proxyAddr string
 	var errorLogFile string
@@ -553,25 +565,25 @@ func main() {
 	flag.StringVar(&ruleFile, "rule_file", "./rule.json", "rule json file path")
 	flag.BoolVar(&testOnly, "test", false, "test mode; parse the serviceMap file")
 	flag.StringVar(&proxyAddr, "proxy_addr", "0.0.0.0:5577", "start a proxy and transfer to backend")
-	flag.StringVar(&errorLogFile, "error_log", "/var/log/wujing/wujing.error.log", "log file position")
+	flag.StringVar(&errorLogFile, "error_log", "/tmp/wujing.error.log", "log file position")
 	flag.StringVar(&basicUser, "basic_user", "admin", "username of basic Authentication ")
 	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
 	flag.Parse()
 
-	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
-	if err != nil {
-		log.Fatalf("error opening file: %v,%v", errorLogFile, err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-
-		}
-	}(f)
-	log.SetOutput(f)
+	//f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	//if err != nil {
+	//	log.Fatalf("error opening file: %v,%v", errorLogFile, err)
+	//}
+	//defer func(f *os.File) {
+	//	err := f.Close()
+	//	if err != nil {
+	//
+	//	}
+	//}(f)
+	//log.SetOutput(f)
 	_, errOfStat := os.Stat(mapFile)
 	if errOfStat != nil {
-		if !os.IsExist(err) {
+		if !os.IsExist(errOfStat) {
 			log.Fatalf("mapFile not exists or can't be stat:%v", mapFile)
 		}
 	} else {

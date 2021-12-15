@@ -16,5 +16,10 @@
   },
   "pkg.biying88.cn": {
     "Method": "none"
+  },
+  "localhost": {
+    "Method": "basic",
+    "AuthName": "heyjude",
+    "AuthPass": "iam9527"
   }
 }
