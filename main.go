@@ -20,6 +20,8 @@ import (
 	"sync"
 )
 
+const version = "1.0.1"
+
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
 	Name   string `json:"name,omitempty"`
@@ -239,7 +241,7 @@ func showHashMethodsHandle(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("{'code':200,'msg':'json encode failed'}"))
 		return
 	} else {
-		w.Write([]byte(jsonTxt))
+		w.Write(jsonTxt)
 	}
 }
 func updateHashHandle(w http.ResponseWriter, r *http.Request) {
@@ -308,8 +310,13 @@ func getIp(r *http.Request) net.IP {
 	ip := net.ParseIP(ipStr)
 	return ip
 }
-func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
+func (h WuJingHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
+	http.Error(w, msg, status)
+}
+
+func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	appendOnHeader(w, r)
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
 	if idx < 0 {
@@ -372,6 +379,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if authenticateMethod == "private-ip" {
 		ip := getIp(r)
 		if ip == nil {
+
 			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
 			return
 		}
@@ -495,13 +503,11 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer func(peer net.Conn) {
 			err := peer.Close()
 			if err != nil {
-
 			}
 		}(peer)
 		defer func(conn net.Conn) {
 			err := conn.Close()
 			if err != nil {
-
 			}
 		}(conn)
 		_, err := io.Copy(peer, conn)
@@ -513,13 +519,11 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer func(peer net.Conn) {
 			err := peer.Close()
 			if err != nil {
-
 			}
 		}(peer)
 		defer func(conn net.Conn) {
 			err := conn.Close()
 			if err != nil {
-
 			}
 		}(conn)
 		_, err := io.Copy(conn, peer)
@@ -552,6 +556,10 @@ func (h WuJingHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request
 	return true
 }
 
+func appendOnHeader(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Wujing-Version", version)
+}
+
 func main() {
 	var proxyAddr string
 	var errorLogFile string
@@ -570,17 +578,16 @@ func main() {
 	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
 	flag.Parse()
 
-	//f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
-	//if err != nil {
-	//	log.Fatalf("error opening file: %v,%v", errorLogFile, err)
-	//}
-	//defer func(f *os.File) {
-	//	err := f.Close()
-	//	if err != nil {
-	//
-	//	}
-	//}(f)
-	//log.SetOutput(f)
+	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	if err != nil {
+		log.Fatalf("error opening file: %v,%v", errorLogFile, err)
+	}
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+		}
+	}(f)
+	log.SetOutput(f)
 	_, errOfStat := os.Stat(mapFile)
 	if errOfStat != nil {
 		if !os.IsExist(errOfStat) {
