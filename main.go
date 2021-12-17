@@ -46,6 +46,10 @@ type Authentication struct {
 	BackendHashMethod string
 }
 
+type HttpResult struct {
+	Status int    `json:"status"`
+	Data   string `json:"data"`
+}
 type ServiceList []ServiceInfo
 type Array []string
 
@@ -284,6 +288,13 @@ func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(_data)
 }
+func HandleClientIp(w http.ResponseWriter, r *http.Request) {
+	index := strings.LastIndex(r.RemoteAddr, ":")
+	ipStr := r.RemoteAddr[:index]
+	data, _ := json.Marshal(&HttpResult{Data: ipStr,
+		Status: 200})
+	w.Write(data)
+}
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(serviceMap)
 	if er != nil {
@@ -326,6 +337,12 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	queryHost := string(runes[0:idx])
 	if queryHost == "" {
 		queryHost = hostSeg
+	}
+	if strings.HasPrefix(r.URL.Path, "/_wujing/_open/") {
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_open/ip") {
+			HandleClientIp(w, r)
+			return
+		}
 	}
 	if strings.HasPrefix(r.URL.Path, "/_wujing/_dash") {
 		if !h.checkBasicAuth(w, r, basicUser, basicPass) {
