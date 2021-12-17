@@ -47,8 +47,10 @@ type Authentication struct {
 }
 
 type HttpResult struct {
-	Status int    `json:"status"`
-	Data   string `json:"data"`
+	Status   int    `json:"status"`
+	Data     string `json:"data"`
+	ClientIp string `json:clientIp`
+	XRealIp  string `json:xRealIp`
 }
 type ServiceList []ServiceInfo
 type Array []string
@@ -291,8 +293,21 @@ func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 	index := strings.LastIndex(r.RemoteAddr, ":")
 	ipStr := r.RemoteAddr[:index]
+	xRealIp := r.Header.Get(" X-Real-Ip")
+	xRealIpStr := xRealIp[:strings.LastIndex(xRealIp, ":")]
+
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
+	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
+	origin := r.Header.Get("Origin")
+	if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	}
 	data, _ := json.Marshal(&HttpResult{Data: ipStr,
-		Status: 200})
+		ClientIp: ipStr,
+		XRealIp:  xRealIpStr,
+		Status:   200})
 	w.Write(data)
 }
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
