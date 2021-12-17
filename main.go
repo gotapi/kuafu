@@ -51,6 +51,7 @@ type HttpResult struct {
 	Data       string `json:"data"`
 	RemoteAddr string `json:remoteAddr`
 	XRealIp    string `json:xRealIp`
+	Header     http.Header
 }
 type ServiceList []ServiceInfo
 type Array []string
@@ -293,12 +294,15 @@ func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 	index := strings.LastIndex(r.RemoteAddr, ":")
 	ipStr := r.RemoteAddr[:index]
-	xRealIp := r.Header.Get(" X-Real-Ip")
-	idx := strings.LastIndex(xRealIp, ":")
+	xRealIpArray := r.Header.Values(" X-Real-Ip")
 	xRealIpStr := ""
-	if idx > 4 {
-		xRealIpStr = xRealIp[:idx]
+	if len(xRealIpArray) > 0 {
+		idx := strings.LastIndex(xRealIpArray[0], ":")
+		if idx > 2 {
+			xRealIpStr = xRealIpArray[0][:idx]
+		}
 	}
+
 	//xRealIp[:idx]
 
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -311,8 +315,9 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data, _ := json.Marshal(&HttpResult{Data: ipStr,
-		RemoteAddr: xRealIp,
+		RemoteAddr: xRealIpStr,
 		XRealIp:    xRealIpStr,
+		Header:     r.Header,
 		Status:     200})
 	w.Write(data)
 }
