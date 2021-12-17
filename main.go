@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-const version = "1.0.1"
+const version = "1.0.2"
 
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
@@ -47,11 +47,9 @@ type Authentication struct {
 }
 
 type HttpResult struct {
-	Status     int    `json:"status"`
-	Data       string `json:"data"`
-	RemoteAddr string `json:remoteAddr`
-	XRealIp    string `json:xRealIp`
-	Header     http.Header
+	Status int    `json:"status"`
+	Data   string `json:"data"`
+	Header http.Header
 }
 type ServiceList []ServiceInfo
 type Array []string
@@ -292,15 +290,18 @@ func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 	w.Write(_data)
 }
 func HandleClientIp(w http.ResponseWriter, r *http.Request) {
-	index := strings.LastIndex(r.RemoteAddr, ":")
-	ipStr := r.RemoteAddr[:index]
-	xRealIpArray := r.Header.Values(" X-Real-Ip")
+	obj := r.Header.Values("x-real-ip")
 	xRealIpStr := ""
-	if len(xRealIpArray) > 0 {
-		idx := strings.LastIndex(xRealIpArray[0], ":")
+	if len(obj) > 0 {
+		idx := strings.LastIndex(obj[0], ":")
 		if idx > 2 {
-			xRealIpStr = xRealIpArray[0][:idx]
+			xRealIpStr = obj[0][:idx]
+		} else {
+			xRealIpStr = obj[0]
 		}
+	} else {
+		idx := strings.LastIndex(r.RemoteAddr, ":")
+		xRealIpStr = r.RemoteAddr[:idx]
 	}
 
 	//xRealIp[:idx]
@@ -314,11 +315,10 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 	}
 
-	data, _ := json.Marshal(&HttpResult{Data: ipStr,
-		RemoteAddr: xRealIpStr,
-		XRealIp:    xRealIpStr,
-		Header:     r.Header,
-		Status:     200})
+	data, _ := json.Marshal(&HttpResult{
+		Data:   xRealIpStr,
+		Header: r.Header,
+		Status: 200})
 	w.Write(data)
 }
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
