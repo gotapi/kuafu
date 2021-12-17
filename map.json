@@ -1,4 +1,11 @@
 {
+  "admin-log.biying88.cn":
+  [
+    {
+      "IP": "172.19.134.159",
+      "Port": 8086
+    }
+  ],
   "admin-consul.biying88.cn":
      [
       {
