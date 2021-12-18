@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang-jwt/jwt"
+	"github.com/hashicorp/consul/api"
 	"hash/crc32"
 	"io"
 	"io/ioutil"
@@ -18,9 +19,16 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"time"
 )
 
 const version = "1.0.2"
+
+var (
+	consul_client  *api.Client
+	serviceLocker  = new(sync.Mutex)
+	backendTagName = "backend"
+)
 
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
@@ -32,6 +40,7 @@ type CustomClaims struct {
 type ServiceInfo struct {
 	IP        string
 	Port      int
+	Source    string  `json:"source"`
 	CpuLoad   float64 `json:"CpuLoad,omitempty"`
 	Timestamp int     `json:"ts,omitempty"`
 }
@@ -77,10 +86,11 @@ type ResponseOfMethods struct {
 type WuJingHttpHandler map[string]string
 
 var (
-	serviceMap    = make(map[string]ServiceList)
-	HashMethodMap = make(map[string]string)
-	ruleMap       = make(map[string]Authentication)
-	methodLocker  = new(sync.Mutex)
+	serviceMap       = make(map[string]ServiceList)
+	serviceMapInFile = make(map[string]ServiceList)
+	HashMethodMap    = make(map[string]string)
+	ruleMap          = make(map[string]Authentication)
+	methodLocker     = new(sync.Mutex)
 )
 
 const (
@@ -602,6 +612,75 @@ func (h WuJingHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request
 func appendOnHeader(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Wujing-Version", version)
 }
+func DoDiscover(consulAddr string) {
+	DiscoverServices(consulAddr, true)
+	t := time.NewTicker(time.Second * 2)
+	for {
+		select {
+		case <-t.C:
+			fmt.Printf("tick..")
+			DiscoverServices(consulAddr, true)
+		}
+	}
+}
+
+func DiscoverServices(addr string, healthyOnly bool) {
+	consulConf := api.DefaultConfig()
+	consulConf.Address = addr
+	client, err := api.NewClient(consulConf)
+	CheckErr(err)
+
+	services, _, err := client.Catalog().Services(&api.QueryOptions{})
+	CheckErr(err)
+
+	fmt.Println("--do discover ---:", addr)
+
+	tempMap := make(map[string]ServiceList)
+
+	for name := range services {
+		servicesData, _, err := client.Health().Service(name, backendTagName, healthyOnly,
+			&api.QueryOptions{})
+		CheckErr(err)
+		for _, entry := range servicesData {
+			//if service_name != entry.Service.Service {
+			//	continue
+			//}
+			for _, health := range entry.Checks {
+				//if health.ServiceName != service_name {
+				//	continue
+				//}
+				if len(health.ServiceID) == 0 {
+					continue
+				}
+				log.Println("  health node id:", health.Node, " service_name:", health.ServiceName, " service_id:", health.ServiceID, " status:", health.Status, " ip:", entry.Service.Address, " port:", entry.Service.Port)
+				var node ServiceInfo
+				node.IP = entry.Service.Address
+				node.Port = entry.Service.Port
+				node.Source = "consul"
+				serverList := tempMap[health.ServiceName]
+				if serverList != nil {
+					serverList = append(serverList, node)
+				} else {
+					var sers ServiceList
+					serverList = append(sers, node)
+				}
+				tempMap[health.ServiceName] = serverList
+				fmt.Println("service node updated ip:", node.IP, " port:", node.Port, " ts:", node.Timestamp)
+			}
+		}
+	}
+	serviceLocker.Lock()
+	var tempResult = make(map[string]ServiceList)
+	for k, v := range tempMap {
+		domain := strings.ReplaceAll(k, "-", ".")
+		tempResult[strings.TrimPrefix(domain, "backend-")] = v
+	}
+	for k, v := range serviceMapInFile {
+		tempResult[k] = v
+	}
+	serviceMap = tempResult
+	serviceLocker.Unlock()
+}
 
 func main() {
 	var proxyAddr string
@@ -610,6 +689,7 @@ func main() {
 
 	var mapFile string
 	var ruleFile string
+	var consulAddr string
 
 	Init()
 	flag.StringVar(&mapFile, "map_file", "./map.json", " the json file of service map")
@@ -619,7 +699,9 @@ func main() {
 	flag.StringVar(&errorLogFile, "error_log", "/tmp/wujing.error.log", "log file position")
 	flag.StringVar(&basicUser, "basic_user", "admin", "username of basic Authentication ")
 	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
+	flag.StringVar(&consulAddr, "consul_addr", "", "consul agent address,like 127.0.0.1:8500 ")
 	flag.Parse()
+	log.Printf("the consul addr:%v\n", consulAddr)
 
 	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
@@ -643,8 +725,7 @@ func main() {
 	if readErr != nil {
 		log.Fatalf("mapFile read failed:%v", mapFile)
 	}
-	json.Unmarshal(jsonData, &serviceMap)
-
+	json.Unmarshal(jsonData, &serviceMapInFile)
 	ruleData, readRuleErr := ioutil.ReadFile(ruleFile)
 	if readRuleErr != nil {
 		log.Fatalf("hostRule fail failed:")
@@ -660,5 +741,8 @@ func main() {
 	开启Proxy
 	*/
 	go StartProxyService(proxyAddr)
+	if consulAddr != "" {
+		go DoDiscover(consulAddr)
+	}
 	select {}
 }
