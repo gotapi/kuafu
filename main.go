@@ -22,10 +22,9 @@ import (
 	"time"
 )
 
-const version = "1.0.2"
+const version = "1.0.4"
 
 var (
-	consul_client  *api.Client
 	serviceLocker  = new(sync.Mutex)
 	backendTagName = "backend"
 )
@@ -61,24 +60,7 @@ type HttpResult struct {
 	Header http.Header
 }
 type ServiceList []ServiceInfo
-type Array []string
 
-// Value ...
-func (i *Array) String() string {
-	return fmt.Sprint(*i)
-}
-
-// Set 方法是flag.Value接口, 设置flag Value的方法.
-// 通过多个flag指定的值， 所以我们追加到最终的数组上.
-func (i *Array) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
-
-type Value interface {
-	String() string
-	Set(string) error
-}
 type ResponseOfMethods struct {
 	Code int               `json:"code"`
 	Data map[string]string `json:"data"`
@@ -145,7 +127,6 @@ func HandleOsKill() {
 	Quit()
 }
 
-//解析token
 func ParseToken(tokenString string, secret string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -168,7 +149,7 @@ func CheckErr(err error) {
 }
 func StatusHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("check status.")
-	fmt.Fprint(w, "status ok!")
+	WriteOutput([]byte("status ok"), w)
 }
 
 func StartProxyService(addr string) {
@@ -247,20 +228,31 @@ func GetBackendServerByHostName(hostnameOriginal string, ip string, path string,
 	return fmt.Sprintf("%s:%d", server.IP, server.Port)
 }
 
+func WriteOutput(data []byte, w http.ResponseWriter) {
+	_, err := w.Write(data)
+	if err != nil {
+		log.Printf("write response data failed")
+		return
+	}
+}
+
 func showHashMethodsHandle(w http.ResponseWriter, r *http.Request) {
 	var response ResponseOfMethods
 	response.Data = HashMethodMap
 	response.Code = 200
 	jsonTxt, er := json.Marshal(response)
 	if er != nil {
-		w.Write([]byte("{'code':200,'msg':'json encode failed'}"))
-		return
+		WriteOutput([]byte("{'code':200,'msg':'json encode failed'}"), w)
 	} else {
-		w.Write(jsonTxt)
+		WriteOutput(jsonTxt, w)
 	}
 }
 func updateHashHandle(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	err := r.ParseForm()
+	if err != nil {
+		log.Printf("parse form parameters failed  ")
+		return
+	}
 	domain := ""
 	method := ""
 	if r.Form["domain"] != nil {
@@ -271,7 +263,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if method != RandHash && method != IPHash && method != UrlHash && method != LoadRound {
-		w.Write([]byte("{'code':200,'msg':'method invalid'}"))
+		WriteOutput([]byte("{'code':200,'msg':'method invalid'}"), w)
 		return
 	}
 	if domain != "" && method != "" {
@@ -279,7 +271,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 		HashMethodMap[domain] = method
 		methodLocker.Unlock()
 	}
-	w.Write([]byte("{'code':200}"))
+	WriteOutput([]byte("{'code':200}"), w)
 }
 
 func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
@@ -288,16 +280,16 @@ func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 	start := len("/_wujing/_dash/backend/")
 	queryHost := string(runes[start:len(path)])
 	backends := GetAllBackends(queryHost)
-	w.Write([]byte(backends))
+	WriteOutput([]byte(backends), w)
 }
 func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(ruleMap)
 	if er != nil {
 		msg := "{'code':401,msg:'cna't json_encode ruleMap '}"
-		w.Write([]byte(msg))
+		WriteOutput([]byte(msg), w)
 		return
 	}
-	w.Write(_data)
+	WriteOutput(_data, w)
 }
 func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 	obj := r.Header.Values("x-real-ip")
@@ -314,8 +306,6 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 		xRealIpStr = r.RemoteAddr[:idx]
 	}
 
-	//xRealIp[:idx]
-
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
@@ -329,16 +319,16 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 		Data:   xRealIpStr,
 		Header: r.Header,
 		Status: 200})
-	w.Write(data)
+	WriteOutput(data, w)
 }
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(serviceMap)
 	if er != nil {
 		msg := "{'code':401,msg:'cna't get message'}"
-		w.Write([]byte(msg))
+		WriteOutput([]byte(msg), w)
 		return
 	}
-	w.Write(_data)
+	WriteOutput(_data, w)
 }
 
 func redirect(w http.ResponseWriter, r *http.Request, redirectUrl string) {
@@ -432,7 +422,6 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if authenticateMethod == "private-ip" {
 		ip := getIp(r)
 		if ip == nil {
-
 			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
 			return
 		}
@@ -527,7 +516,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("dial upstream error:%v", err)
 		w.WriteHeader(503)
-		w.Write([]byte(fmt.Sprintf("dial upstream error:%v", err)))
+		WriteOutput([]byte(fmt.Sprintf("dial upstream error:%v", err)), w)
 		return
 	}
 	if err := r.Write(peer); err != nil {
@@ -725,21 +714,24 @@ func main() {
 	if readErr != nil {
 		log.Fatalf("mapFile read failed:%v", mapFile)
 	}
-	json.Unmarshal(jsonData, &serviceMapInFile)
+	err = json.Unmarshal(jsonData, &serviceMapInFile)
+	if err != nil {
+		log.Fatalf("parse map json file failed\n")
+		return
+	}
 	ruleData, readRuleErr := ioutil.ReadFile(ruleFile)
 	if readRuleErr != nil {
 		log.Fatalf("hostRule fail failed:")
 	}
-	json.Unmarshal(ruleData, &ruleMap)
+	err = json.Unmarshal(ruleData, &ruleMap)
+	if err != nil {
+		log.Fatalf("paser rule json file failed\n")
+		return
+	}
 	log.Printf("json map :%v", serviceMap)
 	log.Printf("rule map:%v", ruleMap)
 
 	go HandleOsKill()
-
-	log.Println("proxy mode")
-	/**
-	开启Proxy
-	*/
 	go StartProxyService(proxyAddr)
 	if consulAddr != "" {
 		go DoDiscover(consulAddr)
