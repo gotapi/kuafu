@@ -259,7 +259,7 @@ func updateServiceMap(w http.ResponseWriter, r *http.Request) {
 	if r.Form["domain"] != nil {
 		domain = strings.Join(r.Form["domain"], "")
 	}
-	if r.Form["json"] != nil {
+	if r.Form["jsonData"] != nil {
 		jsonData = strings.Join(r.Form["jsonData"], "")
 	}
 	var backends ServiceList = make([]ServiceInfo, 32)
