@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const version = "1.0.4"
+const version = "1.0.5"
 
 var (
 	serviceLocker  = new(sync.Mutex)
@@ -247,6 +247,39 @@ func showHashMethodsHandle(w http.ResponseWriter, r *http.Request) {
 		WriteOutput(jsonTxt, w)
 	}
 }
+
+func updateServiceMap(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Printf("parse form parameters failed  ")
+		return
+	}
+	domain := ""
+	jsonData := ""
+	if r.Form["domain"] != nil {
+		domain = strings.Join(r.Form["domain"], "")
+	}
+	if r.Form["json"] != nil {
+		jsonData = strings.Join(r.Form["jsonData"], "")
+	}
+	var backends ServiceList = make([]ServiceInfo, 32)
+	err = json.Unmarshal([]byte(jsonData), &backends)
+	if err != nil {
+		http.Error(w, "can't decode backends from jsonData", 500)
+		return
+	}
+	if len(backends) == 0 {
+		http.Error(w, "backends can't be empty ", 500)
+	}
+	serviceMapInFile[domain] = backends
+	output, err := json.Marshal(&HttpResult{Data: "update succeed.", Status: 200})
+	if err != nil {
+		http.Error(w, "json encode output data failed", 500)
+		return
+	}
+	WriteOutput(output, w)
+}
+
 func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -399,6 +432,10 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			updateHashHandle(w, r)
 			return
 		}
+		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/update/backend") {
+			updateServiceMap(w, r)
+			return
+		}
 	}
 
 	hostRule, okRule := ruleMap[queryHost]
@@ -508,31 +545,31 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
-		w.WriteHeader(504)
+		http.Error(w, "we can't decide which backend could serve tthis request ", 502)
 		return
 	}
 	log.Printf("backend host:%v", backend)
 	peer, err := net.Dial("tcp", backend)
 	if err != nil {
 		log.Printf("dial upstream error:%v", err)
-		w.WriteHeader(503)
+		http.Error(w, "dial upstream failed", 500)
 		WriteOutput([]byte(fmt.Sprintf("dial upstream error:%v", err)), w)
 		return
 	}
 	if err := r.Write(peer); err != nil {
 		log.Printf("write request to upstream error :%v", err)
-		w.WriteHeader(502)
+		http.Error(w, "write request to upstream error", 500)
 		return
 	}
 
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		w.WriteHeader(500)
+		http.Error(w, "hijacker response failed", 500)
 		return
 	}
 	conn, _, err := hj.Hijack()
 	if err != nil {
-		w.WriteHeader(500)
+		http.Error(w, "hijacker requet failed", 500)
 		return
 	}
 	log.Printf(
