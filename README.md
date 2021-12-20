@@ -37,11 +37,13 @@ qwLogin项目目前在qwlogin.biying88.cn上运行，有api/login和api/callback
 
 
 ### 查看运行状态的一些接口
+** 为了安全起全，请配置您自己的 dashboard_prefix 和wujing_prefix。
 访问以"/_wujing/_dash/"开头的一些url时，不会走代理逻辑，而是直接展示了当前生效的配置文件；其中：
 - **/_wujing/_dash/rules** 暴露所有的配置规则；
 - **/_wujing/_dash/backends** 暴露所有的后端转发规则
 - **/_wujing/_dash/hashMethods** 暴露所有的hash方法；
 在访问这些地址时，需要http basic authentication 认证，用户名、密码在启动的时候以命令行方式传入。
+注意，这个开头，是可以在命令行启动时，通过命令行参数自行配置的。
 
 ### 后端轮询方法
 在配置后端寻址的时候，可以指定寻址方案；
