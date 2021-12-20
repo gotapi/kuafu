@@ -22,11 +22,14 @@ import (
 	"time"
 )
 
-const version = "1.0.5"
+const version = "1.0.6"
 
 var (
-	serviceLocker  = new(sync.Mutex)
-	backendTagName = "backend"
+	serviceLocker   = new(sync.Mutex)
+	backendTagName  = "backend"
+	wujingPrefix    = "_wujing"
+	dashboardPrefix = "_dash"
+	dashboardSecret = "9527HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well"
 )
 
 type CustomClaims struct {
@@ -127,6 +130,22 @@ func HandleOsKill() {
 	Quit()
 }
 
+func GenerateDashboardJwtToken(secret string) (string, error) {
+	timeAfterDay, _ := time.ParseDuration("+24h")
+	current := time.Now()
+	timeAfter := current.Add(timeAfterDay)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub":    "admin",
+		"UserId": "admin",
+		"Email":  "admin",
+		"Name":   "admin",
+		"exp":    timeAfter.UnixNano(),
+	})
+
+	// Sign and get the complete encoded token as a string using the secret
+	return token.SignedString([]byte(secret))
+}
+
 func ParseToken(tokenString string, secret string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -137,6 +156,7 @@ func ParseToken(tokenString string, secret string) (*CustomClaims, error) {
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		return claims, nil
 	} else {
+		fmt.Printf("invalid token:%v,%v\n", token, token.Claims)
 		return nil, err
 	}
 }
@@ -310,7 +330,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	runes := []rune(path)
-	start := len("/_wujing/_dash/backend/")
+	start := len("/" + wujingPrefix + "/" + dashboardPrefix + "/backend/")
 	queryHost := string(runes[start:len(path)])
 	backends := GetAllBackends(queryHost)
 	WriteOutput([]byte(backends), w)
@@ -357,7 +377,7 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(serviceMap)
 	if er != nil {
-		msg := "{'code':401,msg:'cna't get message'}"
+		msg := "{'code':401,msg:'can't get message'}"
 		WriteOutput([]byte(msg), w)
 		return
 	}
@@ -375,16 +395,83 @@ func notPrivateIP(w http.ResponseWriter) {
 	http.Error(w, "you are not from private network", http.StatusUnauthorized)
 }
 func getIp(r *http.Request) net.IP {
-	index := strings.LastIndex(r.RemoteAddr, ":")
-	ipStr := r.RemoteAddr[:index]
-	ip := net.ParseIP(ipStr)
-	return ip
+	obj := r.Header.Values("x-real-ip")
+	xRealIpStr := ""
+	if len(obj) > 0 {
+		idx := strings.LastIndex(obj[0], ":")
+		if idx > 2 {
+			xRealIpStr = obj[0][:idx]
+		} else {
+			xRealIpStr = obj[0]
+		}
+	} else {
+		idx := strings.LastIndex(r.RemoteAddr, ":")
+		xRealIpStr = r.RemoteAddr[:idx]
+	}
+	return net.ParseIP(xRealIpStr)
 }
 
 func (h WuJingHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
 	http.Error(w, msg, status)
 }
+func HandleLogin(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Printf("parse form parameters failed  ")
+		return
+	}
+	username := ""
+	password := ""
+	if r.Form["username"] != nil {
+		username = strings.Join(r.Form["username"], "")
+	}
+	if r.Form["password"] != nil {
+		password = strings.Join(r.Form["password"], "")
+	}
 
+	if username == basicUser && password == basicPass {
+		token, error := GenerateDashboardJwtToken(dashboardSecret)
+		if error != nil {
+			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", error)})
+			WriteOutput(data, w)
+		} else {
+			data, _ := json.Marshal(&HttpResult{Status: 200, Data: token})
+			WriteOutput(data, w)
+		}
+	} else {
+		data, _ := json.Marshal(&HttpResult{Status: 403, Data: "login failed"})
+		WriteOutput(data, w)
+	}
+
+}
+
+func (h WuJingHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request) bool {
+	var theToken string
+	var authorizations, _authorizationOk = r.Header["Authorization"]
+	if _authorizationOk {
+		theToken = authorizations[0]
+	} else {
+		log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
+		data, _ := json.Marshal(&HttpResult{Status: 403, Data: "check login failed"})
+		_, err := w.Write(data)
+		if err != nil {
+			return false
+		}
+		return false
+	}
+
+	jwtToken, errToken := ParseToken(theToken, dashboardSecret)
+	if errToken != nil {
+		log.Printf("dashboard jwt Token parse failed:%v,host:%v,path:%v,error:%v",
+			theToken, r.Host, r.URL.Path, errToken)
+		data, _ := json.Marshal(&HttpResult{Status: 403, Data: "parse token failed"})
+		w.Write(data)
+		return false
+	} else {
+		log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
+	}
+	return true
+}
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appendOnHeader(w, r)
 	hostSeg := r.Host
@@ -397,42 +484,77 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if queryHost == "" {
 		queryHost = hostSeg
 	}
-	if strings.HasPrefix(r.URL.Path, "/_wujing/_open/") {
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_open/ip") {
+	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/ip") {
 			HandleClientIp(w, r)
 			return
 		}
-	}
-	if strings.HasPrefix(r.URL.Path, "/_wujing/_dash") {
-		if !h.checkBasicAuth(w, r, basicUser, basicPass) {
-			requestBasicAuthentication(w, r)
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/login") {
+			HandleLogin(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/rules") {
+	}
+	/**
+	如果是内网IP,则支持Basic Authorization 和 Token;
+	有Token的情况下，只校验Token，不管Www basic authorization；
+	如果不是内网IP,则只支持Token;
+	*/
+	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix) {
+		ip := getIp(r)
+		if ip != nil && isPrivateIP(ip) {
+			var authorizations, _authorizationOk = r.Header["Authorization"]
+			/**
+			如果Authorization 不存在,检查basic authorization 也失败了；
+			*/
+			if !_authorizationOk && !h.checkBasicAuth(w, r, basicUser, basicPass) {
+				requestBasicAuthentication(w, r)
+				return
+			}
+
+			/** 如果有Authorization ，检查token也失败了，拒绝服务 */
+			if _authorizationOk {
+				theAuthorization := authorizations[0]
+				if strings.HasPrefix(theAuthorization, "Basic ") {
+					if !h.checkBasicAuth(w, r, basicUser, basicPass) {
+						return
+					}
+				} else {
+					if !h.checkDashToken(w, r) {
+						return
+					}
+				}
+			}
+		} else {
+			if !h.checkDashToken(w, r) {
+				return
+			}
+		}
+
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/rules") {
 			HandleAllRules(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/backends") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/backends") {
 			HandleAllBackends(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/status") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/status") {
 			StatusHandler(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/backend/") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/backend/") {
 			GetBackendsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/hashMethods") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/hashMethods") {
 			showHashMethodsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/update/hashMethod") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/update/hashMethod") {
 			updateHashHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/_wujing/_dash/update/backend") {
+		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/update/backend") {
 			updateServiceMap(w, r)
 			return
 		}
@@ -726,6 +848,8 @@ func main() {
 	flag.StringVar(&basicUser, "basic_user", "admin", "username of basic Authentication ")
 	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
 	flag.StringVar(&consulAddr, "consul_addr", "", "consul agent address,like 127.0.0.1:8500 ")
+	flag.StringVar(&dashboardPrefix, "dash_prefix", "_dash", "dashboard part of uri section.modify it and keep secret.")
+	flag.StringVar(&wujingPrefix, "wujing_prefix", "_wujing", "wujing prefix .modify it and keep secret")
 	flag.Parse()
 	log.Printf("the consul addr:%v\n", consulAddr)
 
