@@ -22,5 +22,10 @@
   },
   "pkg.biying88.cn": {
     "Method": "none"
+  },
+  "yaochi.biying88.cn": {
+    "Method": "basic",
+    "AuthName": "lanyi",
+    "AuthPass": "lanyi2027"
   }
 }

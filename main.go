@@ -851,7 +851,7 @@ func main() {
 	flag.StringVar(&dashboardPrefix, "dash_prefix", "_dash", "dashboard part of uri section.modify it and keep secret.")
 	flag.StringVar(&wujingPrefix, "wujing_prefix", "_wujing", "wujing prefix .modify it and keep secret")
 	flag.Parse()
-	log.Printf("the consul addr:%v\n", consulAddr)
+	log.Printf("the consul addr:%v,wujing_prefix:%v\n", consulAddr, wujingPrefix)
 
 	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 	if err != nil {
