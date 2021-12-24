@@ -21,7 +21,9 @@
     "Method": "none"
   },
   "pkg.biying88.cn": {
-    "Method": "none"
+    "Method": "cookie-jwt",
+    "LoginUrl": "https://qwlogin.biying88.cn/api/dingding/login?_rtUrl=https://pkg.biying88.cn/"
+
   },
   "yaochi.biying88.cn": {
     "Method": "basic",
