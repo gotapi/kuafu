@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const version = "1.0.6"
+const version = "1.0.7"
 
 var (
 	serviceLocker   = new(sync.Mutex)
@@ -60,7 +60,6 @@ type Authentication struct {
 type HttpResult struct {
 	Status int    `json:"status"`
 	Data   string `json:"data"`
-	Header http.Header
 }
 type ServiceList []ServiceInfo
 
@@ -363,7 +362,6 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 
 	data, _ := json.Marshal(&HttpResult{
 		Data:   xRealIpStr,
-		Header: r.Header,
 		Status: 200})
 	WriteOutput(data, w)
 }
@@ -476,6 +474,16 @@ func handleCors(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handle403(url string, w http.ResponseWriter, r *http.Request) {
+	requestWith := r.Header.Get("X-Requested-With")
+	if requestWith == "XMLHttpRequest" {
+		data, _ := json.Marshal(&HttpResult{Status: 403, Data: url})
+		WriteOutput(data, w)
+	} else {
+		redirect(w, r, url)
+	}
+}
+
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appendOnHeader(w, r)
 	hostSeg := r.Host
@@ -584,7 +592,8 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if authenticateMethod == "private-ip" {
+
+	if strings.Contains(authenticateMethod, "private-ip") {
 		ip := getIp(r)
 		if ip == nil {
 			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
@@ -595,7 +604,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if authenticateMethod == "cookie-jwt" || authenticateMethod == "authorization-jwt" {
+	if strings.Contains(authenticateMethod, "cookie-jwt") || strings.Contains(authenticateMethod, "authorization-jwt") {
 		var theToken string
 		var cookie *http.Cookie
 		var er error
@@ -603,7 +612,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cookie, er = r.Cookie("_wjToken")
 			if er != nil {
 				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
-				redirect(w, r, hostRule.LoginUrl)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 			theToken = cookie.Value
@@ -614,7 +623,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				theToken = authorizations[0]
 			} else {
 				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
-				redirect(w, r, hostRule.LoginUrl)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
@@ -623,7 +632,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if errToken != nil {
 			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
 				theToken, r.Host, r.URL.Path, hostRule.Secret, errToken)
-			redirect(w, r, hostRule.LoginUrl)
+			handle403(hostRule.LoginUrl, w, r)
 			return
 		} else {
 			log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
@@ -631,31 +640,27 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if hostRule.RequiredField == "Name" || hostRule.RequiredField == "name" {
 			if len(jwtToken.Name) == 0 {
-				w.WriteHeader(302)
-				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
 
 		if hostRule.RequiredField == "Email" || hostRule.RequiredField == "email" {
 			if len(jwtToken.Email) == 0 {
-				w.WriteHeader(302)
-				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
 
 		if hostRule.RequiredField == "UserId" || hostRule.RequiredField == "userId" {
 			if len(jwtToken.UserId) == 0 {
-				w.WriteHeader(302)
-				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
 		if hostRule.RequiredField == "Subject" || hostRule.RequiredField == "subject" {
 			if len(jwtToken.Subject) == 0 {
-				w.WriteHeader(302)
-				http.Redirect(w, r, hostRule.LoginUrl, http.StatusFound)
+				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
@@ -697,7 +702,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	conn, _, err := hj.Hijack()
 	if err != nil {
-		http.Error(w, "hijacker requet failed", 500)
+		http.Error(w, "hijacker request failed", 500)
 		return
 	}
 	log.Printf(
@@ -786,8 +791,6 @@ func DiscoverServices(addr string, healthyOnly bool) {
 
 	services, _, err := client.Catalog().Services(&api.QueryOptions{})
 	CheckErr(err)
-
-	fmt.Println("--do discover ---:", addr)
 
 	tempMap := make(map[string]ServiceList)
 

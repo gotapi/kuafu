@@ -72,3 +72,14 @@ Usage of ./wujing:
   -test
     	test mode; parse the serviceMap file
 ```
+
+# todo
+- 在XMLHTTPRequest方式下，不做重定向，而是返回403；
+- 支持toml配置
+
+# Change log
+## 1.0.7
+- 去掉了结果输出中的Header
+- 认证方式以前要么是private-ip,要么是cookie-jwt或authorization-jwt中的一种；
+现在可以有多种，用逗号分开即可。
+- 无授权时，对非ajax请求返回Http 303 redirect ，对ajax请求，返回 {Status:403 Data:redirect-URL} 结果。
