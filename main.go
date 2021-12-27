@@ -359,14 +359,7 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 		xRealIpStr = r.RemoteAddr[:idx]
 	}
 
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
-	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	}
+	handleCors(w, r)
 
 	data, _ := json.Marshal(&HttpResult{
 		Data:   xRealIpStr,
@@ -472,6 +465,17 @@ func (h WuJingHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request
 	}
 	return true
 }
+func handleCors(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
+	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
+	origin := r.Header.Get("Origin")
+	if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	}
+}
+
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appendOnHeader(w, r)
 	hostSeg := r.Host
@@ -500,6 +504,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	如果不是内网IP,则只支持Token;
 	*/
 	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix) {
+		handleCors(w, r)
 		ip := getIp(r)
 		if ip != nil && isPrivateIP(ip) {
 			var authorizations, _authorizationOk = r.Header["Authorization"]
