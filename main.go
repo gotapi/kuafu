@@ -489,6 +489,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		queryHost = hostSeg
 	}
 	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/") {
+		handleCors(w, r)
 		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/ip") {
 			HandleClientIp(w, r)
 			return
