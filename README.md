@@ -5,7 +5,7 @@ Wujing(悟净)，是一个http服务转发服务，其转发规则基于map.json
 rule.json 示例 :
 ```
   "admin-grafana.biying88.cn": {
-    "Method": "cookie-jwt",
+    "Method": "cookie",
     "Secret": "HelloBabyUooDayDooAndWhoIsYour",
     "RequiredField": "UserId",
     "LoginUrl": "https://qwlogin.biying88.cn/api/login?_rtUrl=https://admin-grafana.biying88.cn/"
@@ -16,10 +16,10 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 ### 认证方式 
 
-#### cookie-jwt
+#### cookie
 qwlogin在认证完，会在biying88.cn域名下写入一个 名为_wjToken的cookie,其值便是一个jwtToken,解码后包含有userId,name,email几个域。
 rule.json里配置的requiredField一般用的是userId。
-#### authorization-jwt
+#### authorization
 这种认证方式时，qwlogin在认证完，在返回rtUrl时，会在URL附加上_wjToken,_wjName,_wjUserId等几个值 。_wjToken的值是一个jwtToken,解码后包含有userId,name,email几个域。
 rule.json里配置的requiredField一般用的是userId。
 #### private-ip
@@ -76,10 +76,22 @@ Usage of ./wujing:
 # todo
 - 在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 支持toml配置
+- 将cookie-jwt和authorization-jwt改名;
+- cookie名字可配置;
+- 在authorization模式下，token改成从服务端交换到而不是直接给出。
+- login地址试验IP/cookie次数防攻击模式。 
 
 # Change log
+
+## 1.0.8
+- error_log 设置为"-"时，即不将错误重定向到文件中。
+- 将cookie-jwt改名为cookie,authorization-jwt改名为authorization
+- 如果用户以basic方式提交了，会带有一个值类似 "Basic *****"的Authorization头，这样的头在按jwt解析时会出错。已经处理;
+- Token方式提交的时候，能正确处理Authorization: Bearer ***头（之前的处理是不合规范的)
+- 去掉了jwt时对email字段的判断的支持。
+
 ## 1.0.7
 - 去掉了结果输出中的Header
-- 认证方式以前要么是private-ip,要么是cookie-jwt或authorization-jwt中的一种；
+- 认证方式以前要么是private-ip,要么是cookie或authorization中的一种；
 现在可以有多种，用逗号分开即可。
 - 无授权时，对非ajax请求返回Http 303 redirect ，对ajax请求，返回 {Status:403 Data:redirect-URL} 结果。

@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const version = "1.0.7"
+const version = "1.0.8"
 
 var (
 	serviceLocker   = new(sync.Mutex)
@@ -440,7 +440,10 @@ func (h WuJingHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request
 	var theToken string
 	var authorizations, _authorizationOk = r.Header["Authorization"]
 	if _authorizationOk {
-		theToken = authorizations[0]
+		theToken = strings.Trim(authorizations[0], " ")
+		if strings.Contains(theToken, "Bearer ") {
+			theToken = strings.TrimPrefix(theToken, "Bearer ")
+		}
 	} else {
 		log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
 		data, _ := json.Marshal(&HttpResult{Status: 403, Data: "check login failed"})
@@ -604,11 +607,11 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if strings.Contains(authenticateMethod, "cookie-jwt") || strings.Contains(authenticateMethod, "authorization-jwt") {
+	if strings.Contains(authenticateMethod, "cookie") || strings.Contains(authenticateMethod, "authorization") {
 		var theToken string
 		var cookie *http.Cookie
 		var er error
-		if authenticateMethod == "cookie-jwt" {
+		if authenticateMethod == "cookie" {
 			cookie, er = r.Cookie("_wjToken")
 			if er != nil {
 				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
@@ -617,17 +620,27 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			theToken = cookie.Value
 		}
-		if authenticateMethod == "authorization-jwt" {
+		if authenticateMethod == "authorization" {
 			var authorizations, _authorizationOk = r.Header["Authorization"]
 			if _authorizationOk {
-				theToken = authorizations[0]
+				theToken = strings.Trim(authorizations[0], " ")
+				/**
+				如果是发送的Authorization: Bearer **类似的头，则去掉这个Bearer ；
+				*/
+				if strings.HasPrefix(theToken, "Bearer ") {
+					theToken = strings.TrimPrefix(theToken, "Bearer ")
+				}
 			} else {
 				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
 				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
-
+		if strings.Contains(theToken, "Basic ") {
+			log.Printf("Bearer Token should not contain blank. the token is :%v\n,host:%v,path:%v", theToken, r.Host, r.URL.Path)
+			handle403(hostRule.LoginUrl, w, r)
+			return
+		}
 		jwtToken, errToken := ParseToken(theToken, hostRule.Secret)
 		if errToken != nil {
 			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
@@ -637,28 +650,21 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
 		}
-
-		if hostRule.RequiredField == "Name" || hostRule.RequiredField == "name" {
+		hostRule.RequiredField = strings.ToLower(hostRule.RequiredField)
+		if hostRule.RequiredField == "name" {
 			if len(jwtToken.Name) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
 
-		if hostRule.RequiredField == "Email" || hostRule.RequiredField == "email" {
-			if len(jwtToken.Email) == 0 {
-				handle403(hostRule.LoginUrl, w, r)
-				return
-			}
-		}
-
-		if hostRule.RequiredField == "UserId" || hostRule.RequiredField == "userId" {
+		if hostRule.RequiredField == "userId" {
 			if len(jwtToken.UserId) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
 				return
 			}
 		}
-		if hostRule.RequiredField == "Subject" || hostRule.RequiredField == "subject" {
+		if hostRule.RequiredField == "subject" {
 			if len(jwtToken.Subject) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
 				return
@@ -678,7 +684,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
-		http.Error(w, "we can't decide which backend could serve tthis request ", 502)
+		http.Error(w, "we can't decide which backend could serve this request ", 502)
 		return
 	}
 	log.Printf("backend host:%v", backend)
@@ -862,16 +868,19 @@ func main() {
 	flag.Parse()
 	log.Printf("the consul addr:%v,wujing_prefix:%v\n", consulAddr, wujingPrefix)
 
-	f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
-	if err != nil {
-		log.Fatalf("error opening file: %v,%v", errorLogFile, err)
-	}
-	defer func(f *os.File) {
-		err := f.Close()
+	var err error
+	if errorLogFile != "-" {
+		f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
+			log.Fatalf("error opening file: %v,%v", errorLogFile, err)
 		}
-	}(f)
-	log.SetOutput(f)
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+			}
+		}(f)
+		log.SetOutput(f)
+	}
 	_, errOfStat := os.Stat(mapFile)
 	if errOfStat != nil {
 		if !os.IsExist(errOfStat) {
