@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const version = "1.0.8"
+const version = "1.0.9"
 
 var (
 	serviceLocker   = new(sync.Mutex)
@@ -489,6 +489,9 @@ func handle403(url string, w http.ResponseWriter, r *http.Request) {
 
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appendOnHeader(w, r)
+	if r.Method == "OPTIONS" {
+		handleCors(w, r)
+	}
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
 	if idx < 0 {

@@ -83,6 +83,9 @@ Usage of ./wujing:
 
 # Change log
 
+## 1.0.9
+对method = OPTIONS的浏览器preflight请求，无法加认证信息，因此对options请求强制加cors头。
+
 ## 1.0.8
 - error_log 设置为"-"时，即不将错误重定向到文件中。
 - 将cookie-jwt改名为cookie,authorization-jwt改名为authorization
