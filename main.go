@@ -491,6 +491,8 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appendOnHeader(w, r)
 	if r.Method == "OPTIONS" {
 		handleCors(w, r)
+		WriteOutput([]byte("{}"), w)
+		return
 	}
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
