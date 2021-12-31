@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-const version = "1.0.9"
+const version = "1.0.10"
 
 var (
 	serviceLocker   = new(sync.Mutex)
@@ -213,7 +213,8 @@ func GetBackendServerByHostName(hostnameOriginal string, ip string, path string,
 	随机分一台
 	*/
 	if method == RandHash {
-		idx := rand.Intn(len(data))
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		idx := r.Intn(len(data))
 		server = data[idx]
 	}
 	/**

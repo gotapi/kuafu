@@ -74,14 +74,17 @@ Usage of ./wujing:
 ```
 
 # todo
-- 在XMLHTTPRequest方式下，不做重定向，而是返回403；
-- 支持toml配置
-- 将cookie-jwt和authorization-jwt改名;
+- 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
+- 【deprecated】支持toml配置
+- 【done】将cookie-jwt和authorization-jwt改名;
 - cookie名字可配置;
 - 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - login地址试验IP/cookie次数防攻击模式。 
 
 # Change log
+
+## 1.0.10
+bugfix:在随机选backend时，没有正确处理rand.Intn的种子，导致每次都是算的1；
 
 ## 1.0.9
 对method = OPTIONS的浏览器preflight请求，无法加认证信息，因此对options请求强制加cors头。
