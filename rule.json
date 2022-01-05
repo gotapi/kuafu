@@ -33,5 +33,11 @@
   },
   "localhost": {
     "Method": "none"
+  },
+  "watching.biying88.cn":{
+    "Method": "cookie",
+    "Secret": "HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well",
+    "RequiredField": "UserId",
+    "LoginUrl": "https://qwlogin.biying88.cn/api/dingding/login?_rtUrl=https://watching.biying88.cn/"
   }
 }
