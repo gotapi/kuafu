@@ -81,6 +81,8 @@ Usage of ./wujing:
 - 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - login地址试验IP/cookie次数防攻击模式。 
 - 拦截指定IP/UA的;
+- 集成 https://github.com/yuin/gopher-lua
+- 集成普罗米修斯
 
 # Change log
 
