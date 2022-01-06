@@ -83,6 +83,8 @@ Usage of ./wujing:
 - 拦截指定IP/UA的;
 - 集成 https://github.com/yuin/gopher-lua
 - 集成普罗米修斯
+- 支持向上游请求时，动态添加Header 
+- 支持向下游请求时，动态添加Header；
 
 # Change log
 
