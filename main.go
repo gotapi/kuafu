@@ -138,7 +138,7 @@ func GenerateDashboardJwtToken(secret string) (string, error) {
 		"UserId": "admin",
 		"Email":  "admin",
 		"Name":   "admin",
-		"exp":    timeAfter.UnixNano(),
+		"exp":    timeAfter.Unix(),
 	})
 
 	// Sign and get the complete encoded token as a string using the secret
@@ -338,7 +338,7 @@ func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 func HandleAllRules(w http.ResponseWriter, r *http.Request) {
 	_data, er := json.Marshal(ruleMap)
 	if er != nil {
-		msg := "{'code':401,msg:'cna't json_encode ruleMap '}"
+		msg := "{'code':401,msg:'can't json_encode ruleMap '}"
 		WriteOutput([]byte(msg), w)
 		return
 	}
