@@ -80,11 +80,14 @@ Usage of ./wujing:
 - cookie名字可配置;
 - 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - login地址试验IP/cookie次数防攻击模式。 
-- 拦截指定IP/UA的;
+- 拦截指定IP/UA的请求;
 - 集成 https://github.com/yuin/gopher-lua
 - 集成普罗米修斯
 - 支持向上游请求时，动态添加Header 
 - 支持向下游请求时，动态添加Header；
+- 支持IP白名单;
+- 支持fallback地址;
+- 支持热更新
 
 # Change log
 
