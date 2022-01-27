@@ -116,13 +116,13 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if queryHost == "" {
 		queryHost = hostSeg
 	}
-	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/") {
+	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/") {
 		handleCors(w, r)
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/ip") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/ip") {
 			HandleClientIp(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/_open/login") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/login") {
 			HandleLogin(w, r)
 			return
 		}
@@ -132,7 +132,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	有Token的情况下，只校验Token，不管Www basic authorization；
 	如果不是内网IP,则只支持Token;
 	*/
-	if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix) {
+	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix) {
 		handleCors(w, r)
 		ip := getIp(r)
 		if ip != nil && isPrivateIP(ip) {
@@ -140,7 +140,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			/**
 			如果Authorization 不存在,检查basic authorization 也失败了；
 			*/
-			if !_authorizationOk && !h.checkBasicAuth(w, r, basicUser, basicPass) {
+			if !_authorizationOk && !h.checkBasicAuth(w, r, superUsername, superPassword) {
 				requestBasicAuthentication(w, r)
 				return
 			}
@@ -149,7 +149,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if _authorizationOk {
 				theAuthorization := authorizations[0]
 				if strings.HasPrefix(theAuthorization, "Basic ") {
-					if !h.checkBasicAuth(w, r, basicUser, basicPass) {
+					if !h.checkBasicAuth(w, r, superUsername, superPassword) {
 						return
 					}
 				} else {
@@ -164,31 +164,31 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/rules") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/rules") {
 			HandleAllRules(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/backends") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/backends") {
 			HandleAllBackends(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/status") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/status") {
 			StatusHandler(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/backend/") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/backend/") {
 			GetBackendsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/hashMethods") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/hashMethods") {
 			showHashMethodsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/update/hashMethod") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/update/hashMethod") {
 			updateHashHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+wujingPrefix+"/"+dashboardPrefix+"/update/backend") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/update/backend") {
 			updateServiceMap(w, r)
 			return
 		}
@@ -229,7 +229,13 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var cookie *http.Cookie
 		var er error
 		if authenticateMethod == "cookie" {
-			cookie, er = r.Cookie("_wjToken")
+			var tokenName = ""
+			if len(hostRule.TokenName) > 0 {
+				tokenName = hostRule.TokenName
+			} else {
+				tokenName = "_wjToken"
+			}
+			cookie, er = r.Cookie(tokenName)
 			if er != nil {
 				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
 				handle403(hostRule.LoginUrl, w, r)
@@ -301,8 +307,12 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
-		http.Error(w, "we can't decide which backend could serve this request ", 502)
-		return
+		if len(fallbackAddr) > 0 && fallbackAddr != "-" {
+			backend = fallbackAddr
+		} else {
+			http.Error(w, "we can't decide which backend could serve this request ", 502)
+			return
+		}
 	}
 	log.Printf("backend host:%v", backend)
 	peer, err := net.Dial("tcp", backend)
@@ -419,7 +429,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	runes := []rune(path)
-	start := len("/" + wujingPrefix + "/" + dashboardPrefix + "/backend/")
+	start := len("/" + prefix + "/" + dashboardPrefix + "/backend/")
 	queryHost := string(runes[start:len(path)])
 	backends := GetAllBackends(queryHost)
 	WriteOutput([]byte(backends), w)

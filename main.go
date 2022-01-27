@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/hashicorp/consul/api"
@@ -19,15 +18,9 @@ import (
 	"time"
 )
 
-const version = "1.0.10"
+const version = "1.1.0"
 
-var (
-	serviceLocker   = new(sync.Mutex)
-	backendTagName  = "backend"
-	wujingPrefix    = "_wujing"
-	dashboardPrefix = "_dash"
-	dashboardSecret = "9527HelloBabyUooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well"
-)
+var serviceLocker = new(sync.Mutex)
 
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
@@ -52,6 +45,7 @@ type Authentication struct {
 	AuthName          string
 	AuthPass          string
 	BackendHashMethod string
+	TokenName         string
 }
 
 type HttpResult struct {
@@ -82,7 +76,7 @@ const (
 )
 
 var privateIPBlocks []*net.IPNet
-var basicUser, basicPass string
+var superUsername, superPassword string
 
 func Init() {
 	for _, cidr := range []string{
@@ -193,15 +187,10 @@ func GetAllBackends(hostname string) string {
 	return ""
 }
 func GetBackendServerByHostName(hostnameOriginal string, ip string, path string, method string) string {
-
 	hostname := Normalize(hostnameOriginal)
 	data := serviceMap[Normalize(hostname)]
-	if data == nil {
-		log.Println("map item backend-" + hostname + " is null")
-		return ""
-	}
-	if len(data) == 0 {
-		log.Println("map lenth of  backend-" + hostname + " is 0")
+	if data == nil || len(data) == 0 {
+		log.Println("map length of  backend-" + hostname + " is 0")
 		return ""
 	}
 
@@ -303,7 +292,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		password = strings.Join(r.Form["password"], "")
 	}
 
-	if username == basicUser && password == basicPass {
+	if username == superUsername && password == superPassword {
 		token, error := GenerateDashboardJwtToken(dashboardSecret)
 		if error != nil {
 			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", error)})
@@ -379,13 +368,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 			&api.QueryOptions{})
 		CheckErr(err)
 		for _, entry := range servicesData {
-			//if service_name != entry.Service.Service {
-			//	continue
-			//}
 			for _, health := range entry.Checks {
-				//if health.ServiceName != service_name {
-				//	continue
-				//}
 				if len(health.ServiceID) == 0 {
 					continue
 				}
@@ -420,33 +403,12 @@ func DiscoverServices(addr string, healthyOnly bool) {
 }
 
 func main() {
-	var proxyAddr string
-	var errorLogFile string
-	var testOnly bool
-
-	var mapFile string
-	var ruleFile string
-	var consulAddr string
-
-	Init()
-	flag.StringVar(&mapFile, "map_file", "./map.json", " the json file of service map")
-	flag.StringVar(&ruleFile, "rule_file", "./rule.json", "rule json file path")
-	flag.BoolVar(&testOnly, "test", false, "test mode; parse the serviceMap file")
-	flag.StringVar(&proxyAddr, "proxy_addr", "0.0.0.0:5577", "start a proxy and transfer to backend")
-	flag.StringVar(&errorLogFile, "error_log", "/tmp/wujing.error.log", "log file position")
-	flag.StringVar(&basicUser, "basic_user", "admin", "username of basic Authentication ")
-	flag.StringVar(&basicPass, "basic_pass", "admin9527", "password of basic Authentication ")
-	flag.StringVar(&consulAddr, "consul_addr", "", "consul agent address,like 127.0.0.1:8500 ")
-	flag.StringVar(&dashboardPrefix, "dash_prefix", "_dash", "dashboard part of uri section.modify it and keep secret.")
-	flag.StringVar(&wujingPrefix, "wujing_prefix", "_wujing", "wujing prefix .modify it and keep secret")
-	flag.Parse()
-	log.Printf("the consul addr:%v,wujing_prefix:%v\n", consulAddr, wujingPrefix)
-
+	initFlags()
 	var err error
-	if errorLogFile != "-" {
-		f, err := os.OpenFile(errorLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+	if logFile != "-" {
+		f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
-			log.Fatalf("error opening file: %v,%v", errorLogFile, err)
+			log.Fatalf("error opening file: %v,%v", logFile, err)
 		}
 		defer func(f *os.File) {
 			err := f.Close()
@@ -460,8 +422,6 @@ func main() {
 		if !os.IsExist(errOfStat) {
 			log.Fatalf("mapFile not exists or can't be stat:%v", mapFile)
 		}
-	} else {
-
 	}
 	jsonData, readErr := ioutil.ReadFile(mapFile)
 	if readErr != nil {
@@ -481,11 +441,8 @@ func main() {
 		log.Fatalf("paser rule json file failed\n")
 		return
 	}
-	log.Printf("json map :%v", serviceMap)
-	log.Printf("rule map:%v", ruleMap)
-
 	go HandleOsKill()
-	go StartProxyService(proxyAddr)
+	go StartProxyService(listenAt)
 	if consulAddr != "" {
 		go DoDiscover(consulAddr)
 	}
