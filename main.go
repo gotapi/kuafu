@@ -51,6 +51,7 @@ type Authentication struct {
 type HttpResult struct {
 	Status int    `json:"status"`
 	Data   string `json:"data"`
+	Msg    string `json:"msg"`
 }
 type ServiceList []ServiceInfo
 
@@ -402,6 +403,41 @@ func DiscoverServices(addr string, healthyOnly bool) {
 	serviceLocker.Unlock()
 }
 
+// hotUpdateMapFile 热更新ruleMapFile,MapFile 这俩。
+func hotUpdateMapFile() bool {
+
+	jsonData, readErr := ioutil.ReadFile(mapFile)
+	if readErr != nil {
+		fmt.Printf("hot-update: mapFile read failed:%v\n", mapFile)
+		return false
+	}
+	err := json.Unmarshal(jsonData, &serviceMapInFile)
+	if err != nil {
+		fmt.Println("hot-update: parse map json file failed")
+		return false
+	}
+	ruleData, readRuleErr := ioutil.ReadFile(ruleFile)
+	if readRuleErr != nil {
+		fmt.Println("hot-update: hostRule fail failed:")
+		return false
+	}
+	err = json.Unmarshal(ruleData, &ruleMap)
+	if err != nil {
+		fmt.Println("hot-update:  parse rule json file failed")
+		return false
+	}
+
+	/**
+	如果没有consul的话，就直接从文件里加载map;
+	有consul的话，会在consul里合并。
+	*/
+	if consulAddr == "" {
+		serviceMap = serviceMapInFile
+	}
+	return true
+
+}
+
 func main() {
 	initFlags()
 	var err error
@@ -445,6 +481,8 @@ func main() {
 	go StartProxyService(listenAt)
 	if consulAddr != "" {
 		go DoDiscover(consulAddr)
+	} else {
+		serviceMap = serviceMapInFile
 	}
 	select {}
 }

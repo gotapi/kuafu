@@ -13,7 +13,7 @@ import (
 )
 
 func appendOnHeader(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-Wujing-Version", version)
+	w.Header().Set("X-Kuafu-Version", version)
 }
 
 func handleCors(w http.ResponseWriter, r *http.Request) {
@@ -162,6 +162,16 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !h.checkDashToken(w, r) {
 				return
 			}
+		}
+
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/hotload") {
+			updated := hotUpdateMapFile()
+			if updated {
+				jsonHttpResult(w, HttpResult{Status: 500, Msg: "hot-reload failed"})
+			} else {
+				jsonHttpResult(w, HttpResult{Status: 200, Msg: "hot-reload succeed"})
+			}
+			return
 		}
 
 		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/rules") {
@@ -386,6 +396,17 @@ func handle403(url string, w http.ResponseWriter, r *http.Request) {
 	} else {
 		redirect(w, r, url)
 	}
+}
+
+// jsonHttpResult 输出httpResult
+func jsonHttpResult(w http.ResponseWriter, data HttpResult) {
+	_data, er := json.Marshal(data)
+	if er != nil {
+		msg := "{'code':401,msg:json code failed '}"
+		WriteOutput([]byte(msg), w)
+		return
+	}
+	WriteOutput(_data, w)
 }
 
 func HandleAllRules(w http.ResponseWriter, r *http.Request) {
