@@ -108,6 +108,13 @@ func hotUpdateMapFile() bool {
 }
 
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var prefix = kuafuConfig.Dash.Prefix
+	if strings.HasPrefix(prefix, "/") {
+		prefix = prefix[1:]
+	}
+	if strings.HasSuffix(prefix, "/") {
+		prefix = prefix[0 : len(prefix)-1]
+	}
 	appendOnHeader(w, r)
 	if r.Method == "OPTIONS" {
 		handleCors(w, r)
@@ -140,7 +147,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	有Token的情况下，只校验Token，不管Www basic authorization；
 	如果不是内网IP,则只支持Token;
 	*/
-	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix) {
+	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/") {
 		handleCors(w, r)
 		ip := getIp(r)
 		if ip != nil && isPrivateIP(ip) {
@@ -148,7 +155,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			/**
 			如果Authorization 不存在,检查basic authorization 也失败了；
 			*/
-			if !_authorizationOk && !h.checkBasicAuth(w, r, superUsername, superPassword) {
+			if !_authorizationOk && !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
 				requestBasicAuthentication(w, r)
 				return
 			}
@@ -157,7 +164,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if _authorizationOk {
 				theAuthorization := authorizations[0]
 				if strings.HasPrefix(theAuthorization, "Basic ") {
-					if !h.checkBasicAuth(w, r, superUsername, superPassword) {
+					if !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
 						return
 					}
 				} else {
@@ -172,7 +179,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/hotload") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+"/hotload") {
 			updated := hotUpdateMapFile()
 			if updated {
 				jsonHttpResult(w, HttpResult{Status: 500, Msg: "hot-reload failed"})
@@ -182,31 +189,31 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/rules") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/rules") {
 			HandleAllRules(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/backends") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/backends") {
 			HandleAllBackends(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/status") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/status") {
 			StatusHandler(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/backend/") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/backend/") {
 			GetBackendsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/hashMethods") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/hashMethods") {
 			showHashMethodsHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/update/hashMethod") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/update/hashMethod") {
 			updateHashHandle(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+dashboardPrefix+"/update/backend") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/update/backend") {
 			updateServiceMap(w, r)
 			return
 		}
@@ -458,7 +465,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	runes := []rune(path)
-	start := len("/" + prefix + "/" + dashboardPrefix + "/backend/")
+	start := len(strings.ReplaceAll(kuafuConfig.Dash.Prefix+"/backend/", "//", "/"))
 	queryHost := string(runes[start:len(path)])
 	backends := GetAllBackends(queryHost)
 	WriteOutput([]byte(backends), w)

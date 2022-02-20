@@ -21,16 +21,14 @@ import (
 
 var (
 	backendTagName  = "backend"
-	prefix          = "_kuafu"
-	dashboardPrefix = "_dashboard"
 	dashboardSecret string
 )
 
 type DashConfig struct {
-	Secret    string
-	SuperUser string
-	SuperPass string
-	Prefix    string
+	Secret    string `toml:"secret"`
+	SuperUser string `toml:"superUser"`
+	SuperPass string `toml:"superPass"`
+	Prefix    string `toml:"prefix"`
 }
 type ServerConfig struct {
 	TestMode     bool   `toml:"test"`
@@ -45,15 +43,16 @@ type KuafuConfig struct {
 	Hosts map[string]HostConfig `toml:"host"`
 }
 type HostConfig struct {
-	Method        string   `toml:"method"`
-	Secret        string   `toml:"secret"`
-	Backends      []string `toml:"backends"`
-	RequiredField string   `toml:"requiredFields"`
-	TokenName     string   `toml:"tokenName"`
-	LoginUrl      string   `toml:"loginUrl"`
-	AuthName      string   `toml:"authName"`
-	AuthPass      string   `toml:"authPass"`
-	HashMethod    string   `toml:"hashMethod"`
+	Method        string            `toml:"method"`
+	Secret        string            `toml:"secret"`
+	Backends      []string          `toml:"backends"`
+	RequiredField string            `toml:"requiredFields"`
+	TokenName     string            `toml:"tokenName"`
+	LoginUrl      string            `toml:"loginUrl"`
+	AuthName      string            `toml:"authName"`
+	AuthPass      string            `toml:"authPass"`
+	HashMethod    string            `toml:"hashMethod"`
+	AddOnHeaders  map[string]string `toml:"headers"`
 }
 
 var kuafuConfig KuafuConfig
@@ -129,9 +128,14 @@ func loadFromGit(path string, privateKeyFile string, password string) error {
 		Warning("read file %s failed %s\n", privateKeyFile, err.Error())
 		return err
 	}
-
+	sections := strings.Split(path, "#")
+	if len(sections) != 2 {
+		return errors.New("git address malformed;example: git@github.com:xurenlu/hello.git#config/hello.toml")
+	}
+	repo := sections[0]
+	tomlPath := sections[1]
 	// Clone the given repository to the given directory
-	Info("git clone %s ", path)
+	Info("git clone %s ", repo)
 	publicKeys, err := ssh.NewPublicKeysFromFile("git", privateKeyFile, password)
 	if err != nil {
 		Warning("generate publickeys failed: %s\n", err.Error())
@@ -145,7 +149,7 @@ func loadFromGit(path string, privateKeyFile string, password string) error {
 	// We instantiate a new repository targeting the given path (the .git folder)
 	r, err := git.Clone(storer, fs, &git.CloneOptions{
 		Auth:     publicKeys,
-		URL:      path,
+		URL:      repo,
 		Progress: os.Stdout,
 		Depth:    1,
 	})
@@ -166,11 +170,11 @@ func loadFromGit(path string, privateKeyFile string, password string) error {
 		fileIter := tree.Files()
 		fileIter.ForEach(func(file *object.File) error {
 			fmt.Printf("\tfile:%s\t", file.Name)
-			if "main.toml" == file.Name {
+			if tomlPath == file.Name {
 				configFileFound = true
 				content, err = file.Contents()
 				if err == nil {
-					err = readConfig([]byte(content), "main.toml")
+					err = readConfig([]byte(content), tomlPath)
 				}
 			}
 			return nil
@@ -191,7 +195,7 @@ func loadFromDisk(path string) error {
 }
 func initFlags() {
 	flag.StringVar(&configFile, "config", "/etc/kuafu.toml", "configuration file of kuafu")
-	flag.StringVar(&privateKeyFile, "privateKey", "~/.ssh/id_rsa", "ssh private key file path")
+	flag.StringVar(&privateKeyFile, "privateKey", "/Users/xurenlu/.ssh/id_rsa", "ssh private key file path")
 	flag.StringVar(&sshPassword, "sshPassword", "", "ssh private key password")
 	flag.Parse()
 	log.Printf("the consul address:%v,test mode:%v,listen at:%s,log_file:%s",

@@ -36,17 +36,6 @@ type BackendHost struct {
 	Timestamp int     `json:"ts,omitempty"`
 }
 
-type Authentication struct {
-	Method            string `json:"Method,omitempty"`
-	Secret            string
-	RequiredField     string `json:"RequiredField,omitempty"`
-	LoginUrl          string `json:"LoginUrl,omitempty"`
-	AuthName          string
-	AuthPass          string
-	BackendHashMethod string
-	TokenName         string
-}
-
 type HttpResult struct {
 	Status int    `json:"status"`
 	Data   string `json:"data"`
@@ -75,7 +64,6 @@ const (
 )
 
 var privateIPBlocks []*net.IPNet
-var superUsername, superPassword string
 
 func InitIpArray() {
 	for _, cidr := range []string{
@@ -291,7 +279,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		password = strings.Join(r.Form["password"], "")
 	}
 
-	if username == superUsername && password == superPassword {
+	if username == kuafuConfig.Dash.SuperUser && password == kuafuConfig.Dash.SuperPass {
 		token, err := GenerateDashboardJwtToken(dashboardSecret)
 		if err != nil {
 			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", err)})
@@ -409,11 +397,12 @@ func main() {
 
 	err = loadConfig()
 	if err != nil {
+		fmt.Printf("error found:%v\n", err)
 		panic("load configuration failed")
 	}
 	generateServiceMap()
 	var f *os.File
-	if kuafuConfig.Kuafu.LogFile != "-" {
+	if kuafuConfig.Kuafu.LogFile != "-" && kuafuConfig.Kuafu.LogFile != "" {
 		f, err = os.OpenFile(kuafuConfig.Kuafu.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			log.Fatalf("error opening file: %v,%v", kuafuConfig.Kuafu.LogFile, err)
