@@ -41,7 +41,7 @@ func updateServiceMap(w http.ResponseWriter, r *http.Request) {
 	if r.Form["jsonData"] != nil {
 		jsonData = strings.Join(r.Form["jsonData"], "")
 	}
-	var backends ServiceList = make([]ServiceInfo, 32)
+	var backends BackendHostArray = make([]BackendHost, 32)
 	err = json.Unmarshal([]byte(jsonData), &backends)
 	if err != nil {
 		http.Error(w, "can't decode backends from jsonData", 500)
@@ -97,6 +97,14 @@ func redirect(w http.ResponseWriter, r *http.Request, redirectUrl string) {
 func requestBasicAuthentication(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
+}
+func hotUpdateMapFile() bool {
+	err := loadConfig()
+	if err != nil {
+		return false
+	}
+	generateServiceMap()
+	return true
 }
 
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -204,12 +212,12 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	hostRule, okRule := ruleMap[queryHost]
+	hostRule, okRule := kuafuConfig.Hosts[queryHost]
 	authenticateMethod := "none"
 	backendHashMethod := RandHash
 	if okRule {
 		authenticateMethod = hostRule.Method
-		backendHashMethod = hostRule.BackendHashMethod
+		backendHashMethod = hostRule.HashMethod
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
 	}
@@ -317,8 +325,8 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
-		if len(fallbackAddr) > 0 && fallbackAddr != "-" {
-			backend = fallbackAddr
+		if len(kuafuConfig.Kuafu.FallbackAddr) > 0 && kuafuConfig.Kuafu.FallbackAddr != "-" {
+			backend = kuafuConfig.Kuafu.FallbackAddr
 		} else {
 			http.Error(w, "we can't decide which backend could serve this request ", 502)
 			return
@@ -410,7 +418,7 @@ func jsonHttpResult(w http.ResponseWriter, data HttpResult) {
 }
 
 func HandleAllRules(w http.ResponseWriter, r *http.Request) {
-	_data, er := json.Marshal(ruleMap)
+	_data, er := json.Marshal(kuafuConfig.Hosts)
 	if er != nil {
 		msg := "{'code':401,msg:'can't json_encode ruleMap '}"
 		WriteOutput([]byte(msg), w)

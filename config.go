@@ -1,9 +1,22 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
-	"github.com/vharitonsky/iniflags"
+	"fmt"
+	"github.com/BurntSushi/toml"
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -11,34 +24,187 @@ var (
 	prefix          = "_kuafu"
 	dashboardPrefix = "_dashboard"
 	dashboardSecret string
-
-	listenAt     string
-	logFile      string
-	testOnly     bool
-	mapFile      string
-	ruleFile     string
-	consulAddr   string
-	fallbackAddr string
 )
 
-func initFlags() {
-	Init()
-	flag.StringVar(&prefix, "kuafu_prefix", "_kuafu", "prefix of kuafu uri")
-	flag.StringVar(&dashboardSecret, "dashboard_secret", "9527Heflagsiscompatible-with-real--ini-config-files-with-omments-Sections-and-comments-are-skipped-during-config-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-was-speaking-of-bits-as-well",
-		"secret of dashboard URI")
-	flag.StringVar(&mapFile, "map_file", "./map.json", " the json file of service map")
-	flag.StringVar(&ruleFile, "rule_file", "./rule.json", "rule json file path")
-	flag.BoolVar(&testOnly, "test", false, "test mode; parse the serviceMap file")
-	flag.StringVar(&listenAt, "listen", "0.0.0.0:5577", "start a proxy and transfer to backend")
-	flag.StringVar(&logFile, "log_file", "/var/log/kuafu.log", "log file position")
-	flag.StringVar(&superUsername, "super_user", "admin", "username of basic Authentication ")
-	flag.StringVar(&superPassword, "super_pass", "admin1983", "password of basic Authentication ")
-	flag.StringVar(&consulAddr, "consul_addr", "", "consul agent address,like 127.0.0.1:8500 ")
-	flag.StringVar(&dashboardPrefix, "dash_prefix", "_dash", "dashboard part of uri section.modify it and keep secret.")
-	flag.StringVar(&prefix, "prefix", "_kuafu", "wujing prefix .modify it and keep secret")
-	flag.StringVar(&fallbackAddr, "fallback_addr", "", "address when kuafu can't decide which backend would serve the request")
-	iniflags.Parse()
-	log.Printf("the consul addr:%v,prefix:%v,map_file:%v,rule_file:%v,test:%v,listen:%v,log_file:%v,dash_prefix:%v\n",
-		consulAddr, prefix, mapFile, ruleFile, testOnly, listenAt, logFile, dashboardPrefix)
+type DashConfig struct {
+	Secret    string
+	SuperUser string
+	SuperPass string
+	Prefix    string
+}
+type ServerConfig struct {
+	TestMode     bool   `toml:"test"`
+	LogFile      string `toml:"logFile"`
+	ListenAt     string `toml:"listenAt"`
+	ConsulAddr   string `toml:"consulAddr"`
+	FallbackAddr string `toml:"fallback"`
+}
+type KuafuConfig struct {
+	Kuafu ServerConfig          `toml:"kuafu"`
+	Dash  DashConfig            `toml:"dash"`
+	Hosts map[string]HostConfig `toml:"host"`
+}
+type HostConfig struct {
+	Method        string   `toml:"method"`
+	Secret        string   `toml:"secret"`
+	Backends      []string `toml:"backends"`
+	RequiredField string   `toml:"requiredFields"`
+	TokenName     string   `toml:"tokenName"`
+	LoginUrl      string   `toml:"loginUrl"`
+	AuthName      string   `toml:"authName"`
+	AuthPass      string   `toml:"authPass"`
+	HashMethod    string   `toml:"hashMethod"`
+}
 
+var kuafuConfig KuafuConfig
+var configFile string
+var privateKeyFile string
+var sshPassword string
+
+func generateServiceMap() {
+	var sMap = make(map[string]BackendHostArray)
+	for key, config := range kuafuConfig.Hosts {
+		var backends []BackendHost
+		for _, host := range config.Backends {
+			sections := strings.Split(host, ":")
+			if len(sections) == 2 {
+				port, er := strconv.Atoi(sections[1])
+				if er != nil {
+					fmt.Printf("found error ,backend host %s of %s parse failed", host, key)
+				} else {
+					backends = append(backends, BackendHost{IP: sections[0], Port: port})
+				}
+			}
+		}
+		sMap[key] = backends
+	}
+	serviceMapInFile = sMap
+}
+func readConfig(content []byte, filepath string) error {
+	if strings.HasSuffix(filepath, ".toml") {
+		_, errParsed := toml.Decode(string(content), &kuafuConfig)
+		return errParsed
+	}
+	if strings.HasSuffix(filepath, ".json") {
+		return json.Unmarshal(content, &kuafuConfig)
+	}
+	return errors.New("kuafu support only toml/json configuration")
+}
+func loadFromHttp(url string) error {
+	var req *http.Request
+	var err error
+	if req, err = http.NewRequest(http.MethodGet, url, nil); err != nil {
+		return err
+	}
+	req.Header.Set("accept", "*")
+	//req.Header.Set("Authorization", fmt.Sprintf("token %s", token.AccessToken))
+
+	var client = http.Client{}
+	var res *http.Response
+	if res, err = client.Do(req); err != nil {
+		return err
+	}
+	var p []byte
+	_, err = res.Body.Read(p)
+	if err != nil {
+		return err
+	}
+	err = readConfig(p, url)
+	return nil
+}
+
+// Info should be used to describe the example commands that are about to run.
+func Info(format string, args ...interface{}) {
+	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+}
+
+// Warning should be used to display a warning
+func Warning(format string, args ...interface{}) {
+	fmt.Printf("\x1b[36;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+}
+func loadFromGit(path string, privateKeyFile string, password string) error {
+	var err error
+	_, err = os.Stat(privateKeyFile)
+	if err != nil {
+		Warning("read file %s failed %s\n", privateKeyFile, err.Error())
+		return err
+	}
+
+	// Clone the given repository to the given directory
+	Info("git clone %s ", path)
+	publicKeys, err := ssh.NewPublicKeysFromFile("git", privateKeyFile, password)
+	if err != nil {
+		Warning("generate publickeys failed: %s\n", err.Error())
+		return err
+	}
+
+	fs := memfs.New()
+	// Git objects storer based on memory
+	storer := memory.NewStorage()
+
+	// We instantiate a new repository targeting the given path (the .git folder)
+	r, err := git.Clone(storer, fs, &git.CloneOptions{
+		Auth:     publicKeys,
+		URL:      path,
+		Progress: os.Stdout,
+		Depth:    1,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Length of the HEAD history
+	Info("git rev-list HEAD --count")
+	tree, err := r.TreeObjects()
+	if err != nil {
+		return err
+	}
+	var configFileFound bool = false
+	err = nil
+	var content string
+	tree.ForEach(func(tree *object.Tree) error {
+		fileIter := tree.Files()
+		fileIter.ForEach(func(file *object.File) error {
+			fmt.Printf("\tfile:%s\t", file.Name)
+			if "main.toml" == file.Name {
+				configFileFound = true
+				content, err = file.Contents()
+				if err == nil {
+					err = readConfig([]byte(content), "main.toml")
+				}
+			}
+			return nil
+		})
+		return nil
+	})
+	if !configFileFound {
+		return errors.New("configuration file not found")
+	}
+	return nil
+}
+func loadFromDisk(path string) error {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return readConfig(content, path)
+}
+func initFlags() {
+	flag.StringVar(&configFile, "config", "/etc/kuafu.toml", "configuration file of kuafu")
+	flag.StringVar(&privateKeyFile, "privateKey", "~/.ssh/id_rsa", "ssh private key file path")
+	flag.StringVar(&sshPassword, "sshPassword", "", "ssh private key password")
+	flag.Parse()
+	log.Printf("the consul address:%v,test mode:%v,listen at:%s,log_file:%s",
+		kuafuConfig.Kuafu.ConsulAddr, kuafuConfig.Kuafu.TestMode, kuafuConfig.Kuafu.ListenAt, kuafuConfig.Kuafu.LogFile)
+
+}
+
+func loadConfig() error {
+	if strings.HasPrefix(configFile, "http://") || strings.HasPrefix(configFile, "https://") {
+		return loadFromHttp(configFile)
+	}
+	if strings.HasPrefix(configFile, "git@") {
+		return loadFromGit(configFile, privateKeyFile, sshPassword)
+	}
+	return loadFromDisk(configFile)
 }

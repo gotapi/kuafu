@@ -6,7 +6,6 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/hashicorp/consul/api"
 	"hash/crc32"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -29,7 +28,7 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
-type ServiceInfo struct {
+type BackendHost struct {
 	IP        string
 	Port      int
 	Source    string  `json:"source"`
@@ -53,7 +52,7 @@ type HttpResult struct {
 	Data   string `json:"data"`
 	Msg    string `json:"msg"`
 }
-type ServiceList []ServiceInfo
+type BackendHostArray []BackendHost
 
 type ResponseOfMethods struct {
 	Code int               `json:"code"`
@@ -62,10 +61,9 @@ type ResponseOfMethods struct {
 type WuJingHttpHandler map[string]string
 
 var (
-	serviceMap       = make(map[string]ServiceList)
-	serviceMapInFile = make(map[string]ServiceList)
+	serviceMap       = make(map[string]BackendHostArray)
+	serviceMapInFile = make(map[string]BackendHostArray)
 	HashMethodMap    = make(map[string]string)
-	ruleMap          = make(map[string]Authentication)
 	methodLocker     = new(sync.Mutex)
 )
 
@@ -79,7 +77,7 @@ const (
 var privateIPBlocks []*net.IPNet
 var superUsername, superPassword string
 
-func Init() {
+func InitIpArray() {
 	for _, cidr := range []string{
 		"127.0.0.0/8",    // IPv4 loopback
 		"10.0.0.0/8",     // RFC1918
@@ -195,7 +193,7 @@ func GetBackendServerByHostName(hostnameOriginal string, ip string, path string,
 		return ""
 	}
 
-	var server ServiceInfo
+	var server BackendHost
 	/**
 	随机分一台
 	*/
@@ -294,9 +292,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if username == superUsername && password == superPassword {
-		token, error := GenerateDashboardJwtToken(dashboardSecret)
-		if error != nil {
-			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", error)})
+		token, err := GenerateDashboardJwtToken(dashboardSecret)
+		if err != nil {
+			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", err)})
 			WriteOutput(data, w)
 		} else {
 			data, _ := json.Marshal(&HttpResult{Status: 200, Data: token})
@@ -362,7 +360,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 	services, _, err := client.Catalog().Services(&api.QueryOptions{})
 	CheckErr(err)
 
-	tempMap := make(map[string]ServiceList)
+	tempMap := make(map[string]BackendHostArray)
 
 	for name := range services {
 		servicesData, _, err := client.Health().Service(name, backendTagName, healthyOnly,
@@ -374,7 +372,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 					continue
 				}
 				log.Println("  health node id:", health.Node, " service_name:", health.ServiceName, " service_id:", health.ServiceID, " status:", health.Status, " ip:", entry.Service.Address, " port:", entry.Service.Port)
-				var node ServiceInfo
+				var node BackendHost
 				node.IP = entry.Service.Address
 				node.Port = entry.Service.Port
 				node.Source = "consul"
@@ -382,7 +380,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 				if serverList != nil {
 					serverList = append(serverList, node)
 				} else {
-					var sers ServiceList
+					var sers BackendHostArray
 					serverList = append(sers, node)
 				}
 				tempMap[health.ServiceName] = serverList
@@ -391,60 +389,34 @@ func DiscoverServices(addr string, healthyOnly bool) {
 		}
 	}
 	serviceLocker.Lock()
-	var tempResult = make(map[string]ServiceList)
+	var tempResult = make(map[string]BackendHostArray)
+	for k, v := range serviceMapInFile {
+		tempResult[k] = v
+	}
 	for k, v := range tempMap {
 		domain := strings.ReplaceAll(k, "-", ".")
 		tempResult[strings.TrimPrefix(domain, "backend-")] = v
-	}
-	for k, v := range serviceMapInFile {
-		tempResult[k] = v
 	}
 	serviceMap = tempResult
 	serviceLocker.Unlock()
 }
 
-// hotUpdateMapFile 热更新ruleMapFile,MapFile 这俩。
-func hotUpdateMapFile() bool {
-
-	jsonData, readErr := ioutil.ReadFile(mapFile)
-	if readErr != nil {
-		fmt.Printf("hot-update: mapFile read failed:%v\n", mapFile)
-		return false
-	}
-	err := json.Unmarshal(jsonData, &serviceMapInFile)
-	if err != nil {
-		fmt.Println("hot-update: parse map json file failed")
-		return false
-	}
-	ruleData, readRuleErr := ioutil.ReadFile(ruleFile)
-	if readRuleErr != nil {
-		fmt.Println("hot-update: hostRule fail failed:")
-		return false
-	}
-	err = json.Unmarshal(ruleData, &ruleMap)
-	if err != nil {
-		fmt.Println("hot-update:  parse rule json file failed")
-		return false
-	}
-
-	/**
-	如果没有consul的话，就直接从文件里加载map;
-	有consul的话，会在consul里合并。
-	*/
-	if consulAddr == "" {
-		serviceMap = serviceMapInFile
-	}
-	return true
-
-}
-
 func main() {
-	initFlags()
 	var err error
-	if logFile != "-" {
-		f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+
+	InitIpArray()
+	initFlags()
+
+	err = loadConfig()
+	if err != nil {
+		panic("load configuration failed")
+	}
+	generateServiceMap()
+	var f *os.File
+	if kuafuConfig.Kuafu.LogFile != "-" {
+		f, err = os.OpenFile(kuafuConfig.Kuafu.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
-			log.Fatalf("error opening file: %v,%v", logFile, err)
+			log.Fatalf("error opening file: %v,%v", kuafuConfig.Kuafu.LogFile, err)
 		}
 		defer func(f *os.File) {
 			err := f.Close()
@@ -453,34 +425,11 @@ func main() {
 		}(f)
 		log.SetOutput(f)
 	}
-	_, errOfStat := os.Stat(mapFile)
-	if errOfStat != nil {
-		if !os.IsExist(errOfStat) {
-			log.Fatalf("mapFile not exists or can't be stat:%v", mapFile)
-		}
-	}
-	jsonData, readErr := ioutil.ReadFile(mapFile)
-	if readErr != nil {
-		log.Fatalf("mapFile read failed:%v", mapFile)
-	}
-	err = json.Unmarshal(jsonData, &serviceMapInFile)
-	if err != nil {
-		log.Fatalf("parse map json file failed\n")
-		return
-	}
-	ruleData, readRuleErr := ioutil.ReadFile(ruleFile)
-	if readRuleErr != nil {
-		log.Fatalf("hostRule fail failed:")
-	}
-	err = json.Unmarshal(ruleData, &ruleMap)
-	if err != nil {
-		log.Fatalf("paser rule json file failed\n")
-		return
-	}
+
 	go HandleOsKill()
-	go StartProxyService(listenAt)
-	if consulAddr != "" {
-		go DoDiscover(consulAddr)
+	go StartProxyService(kuafuConfig.Kuafu.ListenAt)
+	if kuafuConfig.Kuafu.ConsulAddr != "" {
+		go DoDiscover(kuafuConfig.Kuafu.ConsulAddr)
 	} else {
 		serviceMap = serviceMapInFile
 	}
