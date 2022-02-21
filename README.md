@@ -1,7 +1,7 @@
-# Kuafu 一个统一做各种web工具做安全校验的的http代理服务
+# Kuafu 一个刚好够用的提供安全增强和灵活上游寻址的网关
 
 Kuafu(夸父)，是一个http服务转发服务，目前我们是将其挂在nginx后面，使用kuafu来实现灵活地转发到后端并实现用户认证校验的需求。
-Kuafu主要干两件事情，一是后端寻址、转发；二是安全认证。其转发规则又有两套实现，一个是根据map.json里的来转发，二是从consul里做服务发现；其安全认证方案则是基于rule.json里的配置。
+Kuafu主要干两件事情，一是后端寻址、转发；二是安全认证。其后端寻址转发规则又有两套实现，一个是根据配置文件里的来转发，二是从consul里做服务发现。
 
 ## 为什么会想到开发kuafu
 这个是源自我们公司的需求，目前经过几年的时间，已经积累了太多web小应用，但是很多是开放访问的，全都开放访问，有点心里发虚，但是挨个应用去改一遍接上一套登陆系统，也是一个浩大的工程。于是我有了一个大胆的想法：能不能把这些应用都放在一个http代理服务器后面，代理服务器提前做一下登陆验证？于是就把之前做的一个开源工具进行了改造，加上了登陆校验的功能。这就是写kuafu的初心。
@@ -9,12 +9,12 @@ Kuafu主要干两件事情，一是后端寻址、转发；二是安全认证。
 
 ## Kuafu的启动参数
 
-启动kuafu时，只需要用-config指定配置文件即可,同时也可以在命令行选项里指定配置文件里的各个项目。一般建议就用.env 作为配置文件名；但是.env文件不要加到git版本管理里去，这样开发环境、生产环境可以使用不同的配置。
-```
-./kuafu -config ./.env
-```
-由于kuafu 使用了 [https://github.com/vharitonsky/iniflags](https://github.com/vharitonsky/iniflags) 这个库来做动态加载，-config 文件也可以指定为一个线上地址；也可以通过 -configUpdateInterval=5s  这样的参数来指定重新加载配置文件的频次。
-配置文件里的主要配置项的意义，可以参照env.example 文件里的介绍。
+kuafu 启动时，主要是指定-config参数了，-config 可以是本地文件位置，也可以是http网络文件，也可以是git仓库地址。
+-config是git仓库地址时，格式类似 git@github.com:{user}/{repo.git}#{file_path}
+kuafu会先从git仓库里拉取，再找到{file_path}文件加载。
+配置文件目前支持.toml和.json文件。
+~~[升级到1.2.0以后，只有一个config参数了]启动kuafu时，只需要用-config指定配置文件即可,同时也可以在命令行选项里指定配置文件里的各个项目。一般建议就用.env 作为配置文件名；但是.env文件不要加到git版本管理里去，这样开发环境、生产环境可以使用不同的配置。~~
+
 
 ## 后端寻址
 
@@ -44,45 +44,48 @@ server {
 ```
 这样到任何shifen.de的子域名的请求都发给kuafu来服务了。
 
-> kuafu可以从一个map.json文件里寻找后端地址，也可以在consul的服务发现里寻找后端。其中，consul的优先级更高；如果一个域名已经在consul中有配置了，map.json文件里的设定将会失效。
+> kuafu可以从配置文件里设定的backends里寻找后端地址，也可以在consul的服务发现里寻找后端。其中，consul的优先级更高；如果一个域名已经在consul中有配置了，配置文件里的设定将会失效。
 
-### 1. 根据map.json 配置来静态寻址
-env配置文件里有一个map_file可以指定一个map.json文件，这个文件里指定了各个域名背后的后端的IP和端口分别是什么；是可以指定多个的，当有多个后端时，kuafu根据rule.json里指定的规则来进行寻址；寻址方法有以下几种：
+### 配置文件示例
+以下是一个kuafu.toml配置文件示例:
+```
+[kuafu]
+listenAt="0.0.0.0:5577"
+
+[dash]
+prefix="/_dash/secret1983/"
+superUser="root"
+superPass="admin1983"
+secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefofwe7r823fdfdsgoodiwefefofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+
+[host."api.example.com"]
+	backends=["172.19.4.25:8080"]
+	method="cookie"
+	secret= "HelloBabyU-jjwt-an87rvnlooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-an87rvnlflidsfdsyuf2efore-was-speaking-of-bits-as-well"
+	requiredField="UserId"
+	loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https://api.example.com/"
+
+[host."grafana.example.com"]
+    method="basic"	
+    authName="someuser"
+    authPass="somepassword"
+   loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https:/grafana.example.com/" 
+```
+
 
 #### 后端轮询方法
-寻址方案一共有这几个:
+每个域名的后端机器可以有多台，当有多台时，寻址方案一共有这几个:
 - LoadHash 按负载寻址，找负载最低的后端来服务。（暂未支持，因为现在的版本去掉了收集各个后端负载情况的功能）
 - IPHash 按IP Hash,相同IP的请求，会Hash到同一个后端;
 - UrlHash 按UrlHash,相同Url的请求，会hash到同一个后端；
 - RandHash 默认的寻址方式 ，随机拎一个后端出来服务。
 
-####  map.json 示例
-
-```
-{
-  "admin-grafana.shifen.de": [
-    {
-      "IP": "172.19.13.15",
-      "Port": 3000
-    },
-    {
-      "IP": "172.19.13.16",
-      "Port": 3000
-    }
-  ],
-  "admin-consul.shifen.de": [
-    {
-      "IP": "172.19.13.18",
-      "Port": 8500
-    }
-  ],
-}
-```
 
 
 ### 2. 通过consul 的服务发现功能来寻址
-kuafu同时支持从map.json的配置里寻找后端，也支持从consul的服务发现里来寻找后端。
-默认的命令行里并没有设置consul_addr的值，如果机房已经部署了consul,则可以在.env（假定配置文件是这个）这个配置文件里指定 consul_addr项， 即可指定consul 的地址。kuafu会自动连接并进行服务发现。
+
+kuafu同时支持从配置文件里的配置里寻找后端，也支持从consul的服务发现里来寻找后端。
+示例的配置文件里并没有设置consulAddr的值，如果机房已经部署了consul,则可以在这个配置文件里指定 consulAddr项， 即可指定consul 的地址。kuafu会自动连接并进行服务发现。 
 
 #### Spring Boot 注册一个consul后端
 Spring boot 很好的集成了consul,这里只需要三步:
@@ -153,28 +156,26 @@ public class StatusController {
 qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和Authorization两种。
 
 ## 后端安全认证
-在配置文件(我们这里假定为.env)里，可以通过 rule_file=./rule.json 这样的形式来指定一个rule.json文件，这个配置文件里，指定了各个域名的安全策略和后端的寻址轮询策略。
+在配置文件，可以指定了域名的安全策略和后端的寻址轮询策略。
 
 
-### rule.json 示例 :
+### 配置文件示例和说明 :
 
 ```
-{
-  "admin-grafana.shifen.de": {
-    "Method": "cookie",
-    "Secret": "HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour",
-    "RequiredField": "UserId",
-    "LoginUrl": "https://qwlogin.shifen.de/api/login?_rtUrl=https://admin-grafana.shifen.de/"
-  },
-  "hr.shifen.de": {
-    "Method": "authorization",
-    "Secret": "HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour",
-    "RequiredField": "UserId",
-    "LoginUrl": "https://qwlogin.shifen.de/api/login?_rtUrl=https://hr.shifen.de/"
-  },
-}
+[host."admin-grafana.shifen.de"]: 
+    Method= "cookie"
+Secret="HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour"
+    RequiredField="UserId"
+    LoginUrl="https://qwlogin.shifen.de/api/login?_rtUrl=https://admin-grafana.shifen.de/"
+[host."hr.shifen.de"]  
+    Method= "authorization"
+    Secret= "HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour"
+    RequiredField="UserId"
+    LoginUrl="https://qwlogin.shifen.de/api/login?_rtUrl=https://hr.shifen.de/"
+  
+
 ```
-下面解读一下这个rule.json;其中每一个域名里的配置都可以有Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod 这几项。TokenName的值如果没有指定，则为_wjToken;
+下面解读一下这个配置ywyr;其中每一个域名里的配置都可以有Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod 这几项。TokenName的值如果没有指定，则为_wjToken;
 Method指定了安全校验的方式，有cookie,authorization,private-ip,basic,none五种方式。
 
 ### cookie
@@ -197,12 +198,13 @@ none 方式，是默认方式。如果任何域名的Method没有指定，其值
 
 
 ## kuafu项目查看本身运行状态的一些接口
-** 为了安全起全，请在.env配置文件里，设置您自己的 prefix 和dash_prefix。
-访问以"/${prefix}/${dash_prefix}/"开头的一些url时，不会走代理逻辑，而是直接展示了当前生效的配置文件或配置项；其中：
-- **/${prefix}/${dash_prefix}/rules** 暴露所有的配置规则；
-- **/${prefix}/${dash_prefix}/backends** 暴露所有的后端转发规则
-- **/${prefix}/${dash_prefix}/hashMethods** 暴露所有的hash方法；
-在访问这些地址时，需要http basic authentication 认证，用户名、密码在启动的时候以命令行方式传入或在.env配置文件里配置，名字分别为super_user,super_pass，默认的值是admin,admin1983；
+** 为了安全起全，请在配置文件里，设置您自己的 dash.prefix。
+访问以"/${dash.prefix}/"开头的一些url时，不会走代理逻辑，而是直接展示了当前生效的配置文件或配置项；其中：
+- **/${dash.prefix}/rules** 暴露所有的配置规则；
+- **/${dash.prefix}/backends** 暴露所有的后端转发规则
+- **/${dash.prefix}/hashMethods** 暴露所有的hash方法；
+在访问这些地址时，需要http basic authentication 认证，用户名、密码配置文件里配置，名字分别为dash.superUser,dash.superPass。
+
 
 
 
@@ -231,6 +233,12 @@ none 方式，是默认方式。如果任何域名的Method没有指定，其值
 - 支持热更新
 
 # Change log
+## 1.2.0
+- 做了大量的变更，弃用了dotenv形式的配置，改用.json或toml来配置。
+- 支持从网络或git库加载配置文件。
+- 支持用webhook来通知kuafu重新加载配置文件。
+
+
 ## 1.1.1 
 
 支持hotreload了，更新了map json和rule json之后，可以热更新了。
