@@ -194,10 +194,18 @@ func loadFromDisk(path string) error {
 	return readConfig(content, path)
 }
 func initFlags() {
-	flag.StringVar(&configFile, "config", "/etc/kuafu.toml", "configuration file of kuafu")
-	flag.StringVar(&privateKeyFile, "privateKey", "/Users/xurenlu/.ssh/id_rsa", "ssh private key file path")
-	flag.StringVar(&sshPassword, "sshPassword", "", "ssh private key password")
+	flag.StringVar(&configFile, "config", "./etc/kuafu.toml", "configuration file of kuafu")
+	flag.StringVar(&privateKeyFile, "private-key", "~/.ssh/id_rsa", "ssh private key file path")
+	flag.StringVar(&sshPassword, "ssh-password", "", "ssh private key password")
 	flag.Parse()
+	if strings.HasPrefix(privateKeyFile, "~") {
+		normalizedPrivateKeyFile := privateKeyFile[1:len(privateKeyFile)]
+		home, er := Home()
+		if er != nil {
+			panic("can't normalize path:" + privateKeyFile)
+		}
+		privateKeyFile = home + normalizedPrivateKeyFile
+	}
 	log.Printf("the consul address:%v,test mode:%v,listen at:%s,log_file:%s",
 		kuafuConfig.Kuafu.ConsulAddr, kuafuConfig.Kuafu.TestMode, kuafuConfig.Kuafu.ListenAt, kuafuConfig.Kuafu.LogFile)
 

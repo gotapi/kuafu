@@ -5,7 +5,7 @@ Kuafu主要干两件事情，一是后端寻址、转发；二是安全认证。
 
 ## 为什么会想到开发kuafu
 这个是源自我们公司的需求，目前经过几年的时间，已经积累了太多web小应用，但是很多是开放访问的，全都开放访问，有点心里发虚，但是挨个应用去改一遍接上一套登陆系统，也是一个浩大的工程。于是我有了一个大胆的想法：能不能把这些应用都放在一个http代理服务器后面，代理服务器提前做一下登陆验证？于是就把之前做的一个开源工具进行了改造，加上了登陆校验的功能。这就是写kuafu的初心。
-
+再后来，为了满足Java同学蓝绿发布的需求，想到了用consul来做服务发现，在kuafu中去取节点信息。
 
 ## Kuafu的启动参数
 
@@ -13,15 +13,67 @@ kuafu 启动时，主要是指定-config参数了，-config 可以是本地文�
 -config是git仓库地址时，格式类似 git@github.com:{user}/{repo.git}#{file_path}
 kuafu会先从git仓库里拉取，再找到{file_path}文件加载。
 配置文件目前支持.toml和.json文件。
+当指定为从git拉取时，需要同时用<kbd>private-key</kbd>和<kbd>ssh-password</kbd>指定ssh密钥文件路径和相应的密码。
 ~~[升级到1.2.0以后，只有一个config参数了]启动kuafu时，只需要用-config指定配置文件即可,同时也可以在命令行选项里指定配置文件里的各个项目。一般建议就用.env 作为配置文件名；但是.env文件不要加到git版本管理里去，这样开发环境、生产环境可以使用不同的配置。~~
 
+## 配置文件示例
+以下是一个kuafu.toml配置文件示例:
 
-## 后端寻址
+```toml
+[kuafu]
+listenAt="0.0.0.0:5577" #监听地址;
 
-下面先介绍后端寻址。
+[dash]
+prefix="/_dash/secret1983/" #为了安全特意加了一个前缀；
+superUser="root" #对服务做动态变更时或需要查看信息时，先用这个user和pass登陆换一个token
+superPass="admin1983" 
+#以下是登陆后产生token的一个secret;
+secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefofwe7r823fdfdsgoodiwefefofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+
+#以下是一个新host
+[host."api.example.com"]
+	backends=["172.19.4.25:8080"] #该域名的后端服务器
+	method="cookie" #校验方法
+	#从loginUrl回调过来时，会附带一个token,这个token就是用下面这个secret加密的。
+	secret= "HelabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-an87rvnlflidsfdsyuf2efore-was-speaking-of-bits-as-well"
+	# 对刚才的to。ken做jwt解码校验，验证这个UserId域是否存在
+	requiredField="UserId"
+	# 没好cookie中没有一个_wjToken值时，或对空名叫_wjToken的值解码失败时，会重定向到这个地址。
+	loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https://api.example.com/"
+
+[host."grafana.example.com"]
+    #这是一个grafana的服务，简单一点，用http basic 认证，知道密码就行。
+    backends=["172.14.32.3:3000]
+    method="basic"	
+    authName="someuser"
+    authPass="somepassword" 
+```
+
+下面解读一下这个配置ywyr;其中每一个域名里的配置都可以有Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod 这几项。TokenName的值如果没有指定，则为_wjToken;
+Method指定了安全校验的方式，有cookie,authorization,private-ip,basic,none五种方式。
+
+### cookie
+当method为cookie时，kuafu会检查名为${TokenName}的Cookie,如果有这个Cookie，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
+任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
+rule.json里配置的requiredField一般用的是userId。
+### authorization
+当method为cookie时，kuafu会检查名为Authorization的Header,如果有这个Header，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
+任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
+rule.json里配置的requiredField一般用的是userId。
+### private-ip
+只接受在内网IP访问；
+### basic
+以 **http-basic-authentication** 的方式做认证，用户名、密码分别是rule.json中配置的${AuthName},${AuthPass}。
+
+### none
+none 方式，是默认方式。如果任何域名的Method没有指定，其值就会是none。none的意思就是。。。不做认证校验了。
+
+
+
+##  nginx配置
+
 一般来说，我们是将kuafu挂在nginx的后面来提供服务，因为如果要做一个通用的web server的话，要处理https证书、压缩、不同的http协议、websocket等各种协议，实在是太复杂了；只有在开发环境，才会直接用kuafu来提供web服务。
 
-### nginx配置
 
 nginx下，我们只需要一股脑将各个子域名的服务都转发给kuafu就好了；比如，kuafu默认工作在5577端口，在nginx.conf里我们是这样配置的:
 ```
@@ -46,34 +98,7 @@ server {
 
 > kuafu可以从配置文件里设定的backends里寻找后端地址，也可以在consul的服务发现里寻找后端。其中，consul的优先级更高；如果一个域名已经在consul中有配置了，配置文件里的设定将会失效。
 
-### 配置文件示例
-以下是一个kuafu.toml配置文件示例:
-```
-[kuafu]
-listenAt="0.0.0.0:5577"
-
-[dash]
-prefix="/_dash/secret1983/"
-superUser="root"
-superPass="admin1983"
-secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefofwe7r823fdfdsgoodiwefefofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
-
-[host."api.example.com"]
-	backends=["172.19.4.25:8080"]
-	method="cookie"
-	secret= "HelloBabyU-jjwt-an87rvnlooDayDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-an87rvnlflidsfdsyuf2efore-was-speaking-of-bits-as-well"
-	requiredField="UserId"
-	loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https://api.example.com/"
-
-[host."grafana.example.com"]
-    method="basic"	
-    authName="someuser"
-    authPass="somepassword"
-   loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https:/grafana.example.com/" 
-```
-
-
-#### 后端轮询方法
+### 后端轮询方法
 每个域名的后端机器可以有多台，当有多台时，寻址方案一共有这几个:
 - LoadHash 按负载寻址，找负载最低的后端来服务。（暂未支持，因为现在的版本去掉了收集各个后端负载情况的功能）
 - IPHash 按IP Hash,相同IP的请求，会Hash到同一个后端;
@@ -82,7 +107,7 @@ secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwof
 
 
 
-### 2. 通过consul 的服务发现功能来寻址
+## 2. 通过consul 的服务发现功能来寻址
 
 kuafu同时支持从配置文件里的配置里寻找后端，也支持从consul的服务发现里来寻找后端。
 示例的配置文件里并没有设置consulAddr的值，如果机房已经部署了consul,则可以在这个配置文件里指定 consulAddr项， 即可指定consul 的地址。kuafu会自动连接并进行服务发现。 
@@ -131,7 +156,7 @@ spring:
         service-name: backend:logcenter.shifen.de
         tags: backend
 ```
-D. 设定健康检测URI
+D. 设定健康检测URI 这个url访问不了，则consul认为这个节点已经挂 了，就会从可用节点里摘掉。
 
 ```JAVA
 /**
@@ -149,50 +174,9 @@ public class StatusController {
 > 有一个小的tips: spring boot 在注册服务时会把小圆点换成横线。所以a-b.com 和a.b.com会被认为是同一个。略坑。
 
 
-
-
-
 登陆地址目前只能是qwlogin.biying88.cn下的这个login地址。
 qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和Authorization两种。
 
-## 后端安全认证
-在配置文件，可以指定了域名的安全策略和后端的寻址轮询策略。
-
-
-### 配置文件示例和说明 :
-
-```
-[host."admin-grafana.shifen.de"]: 
-    Method= "cookie"
-Secret="HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour"
-    RequiredField="UserId"
-    LoginUrl="https://qwlogin.shifen.de/api/login?_rtUrl=https://admin-grafana.shifen.de/"
-[host."hr.shifen.de"]  
-    Method= "authorization"
-    Secret= "HelloBabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDooAndWhoIsYourrour"
-    RequiredField="UserId"
-    LoginUrl="https://qwlogin.shifen.de/api/login?_rtUrl=https://hr.shifen.de/"
-  
-
-```
-下面解读一下这个配置ywyr;其中每一个域名里的配置都可以有Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod 这几项。TokenName的值如果没有指定，则为_wjToken;
-Method指定了安全校验的方式，有cookie,authorization,private-ip,basic,none五种方式。
-
-### cookie
-当method为cookie时，kuafu会检查名为${TokenName}的Cookie,如果有这个Cookie，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
-任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
-rule.json里配置的requiredField一般用的是userId。
-### authorization
-当method为cookie时，kuafu会检查名为Authorization的Header,如果有这个Header，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
-任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
-rule.json里配置的requiredField一般用的是userId。
-### private-ip
-只接受在内网IP访问；
-### basic
-以 **http-basic-authentication** 的方式做认证，用户名、密码分别是rule.json中配置的${AuthName},${AuthPass}。
-
-### none
-none 方式，是默认方式。如果任何域名的Method没有指定，其值就会是none。none的意思就是。。。不做认证校验了。
 
 
 
