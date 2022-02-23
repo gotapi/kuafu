@@ -153,7 +153,7 @@ spring:
         health-check-critical-timeout: 30s
         health-check-path: /spring/boot/status
         instance-id: ${spring.application.name}:${spring.cloud.client.ip-address}:${server.port} # 应用名称+服务器IP+端口
-        service-name: backend:logcenter.shifen.de
+        service-name: logcenter.shifen.de
         tags: backend
 ```
 D. 设定健康检测URI 这个url访问不了，则consul认为这个节点已经挂 了，就会从可用节点里摘掉。
