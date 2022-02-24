@@ -1,0 +1,24 @@
+[kuafu]
+listenAt="0.0.0.0:5577"
+
+[dash]
+prefix="/_dash/secret5577/"
+superUser="admin"
+superPass="admin"
+secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+
+[host."gotapi.404.ms"]
+	backends=["127.0.0.1:5555","127.0.0.1:5566"]
+	headers = {content-type="text/html",accept="application/json"}
+    method="cookie"
+	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
+    requiredField= "UserId"
+    loginUrl= "https://login.shifen.de/api/login?_rtUrl=https://gotapi.404.ms/"
+	hashMethod="UrlHash"
+
+[host."grafana.404.ms"]
+	backends=["172.19.14.149:3000"]
+	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
+    requiredField= "UserId"
+    loginUrl= "https://login.shifen.de/api/login?_rtUrl=https://grafana.404.ms/"
+
