@@ -9,12 +9,20 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fw
 
 [host."gotapi.404.ms"]
 	backends=["127.0.0.1:5555","127.0.0.1:5566"]
-	headers = {content-type="text/html",accept="application/json"}
+	headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}
     method="cookie"
 	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
     requiredField= "UserId"
     loginUrl= "https://login.shifen.de/api/login?_rtUrl=https://gotapi.404.ms/"
 	hashMethod="UrlHash"
+	autoCors = true
+
+[host."test.404.ms"]	
+	backends=["localhost:3388"]
+	upstreamHeaders={client-testing="2022.2.25"}
+	autoCors = true
+		headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}
+	
 
 [host."grafana.404.ms"]
 	backends=["172.19.14.149:3000"]

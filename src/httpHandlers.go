@@ -225,6 +225,19 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if okRule {
 		authenticateMethod = hostRule.Method
 		backendHashMethod = hostRule.HashMethod
+		if hostRule.AddOnHeaders != nil {
+			for k, v := range hostRule.AddOnHeaders {
+				w.Header().Set(k, v)
+			}
+		}
+		if hostRule.UpstreamHeaders != nil {
+			for k, v := range hostRule.UpstreamHeaders {
+				r.Header.Set(k, v)
+			}
+		}
+		if hostRule.AutoCors {
+			handleCors(w, r)
+		}
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
 	}

@@ -43,16 +43,18 @@ type KuafuConfig struct {
 	Hosts map[string]HostConfig `toml:"host"`
 }
 type HostConfig struct {
-	Method        string            `toml:"method"`
-	Secret        string            `toml:"secret"`
-	Backends      []string          `toml:"backends"`
-	RequiredField string            `toml:"requiredFields"`
-	TokenName     string            `toml:"tokenName"`
-	LoginUrl      string            `toml:"loginUrl"`
-	AuthName      string            `toml:"authName"`
-	AuthPass      string            `toml:"authPass"`
-	HashMethod    string            `toml:"hashMethod"`
-	AddOnHeaders  map[string]string `toml:"headers"`
+	Method          string            `toml:"method"`
+	Secret          string            `toml:"secret"`
+	Backends        []string          `toml:"backends"`
+	RequiredField   string            `toml:"requiredFields"`
+	TokenName       string            `toml:"tokenName"`
+	LoginUrl        string            `toml:"loginUrl"`
+	AuthName        string            `toml:"authName"`
+	AuthPass        string            `toml:"authPass"`
+	HashMethod      string            `toml:"hashMethod"`
+	AddOnHeaders    map[string]string `toml:"headers"`
+	UpstreamHeaders map[string]string `toml:"upstreamHeaders"`
+	AutoCors        bool              `toml:"autoCors"`
 }
 
 var kuafuConfig KuafuConfig

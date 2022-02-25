@@ -7,4 +7,4 @@ current:
 	go build -o ./kuafu ./src/
 
 run:
-	sh ./test.sh
+	./kuafu -config ./etc/main.toml
