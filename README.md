@@ -205,6 +205,7 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - 【deprecated】支持toml配置
 - 【done】将cookie-jwt和authorization-jwt改名;
 - 【done】cookie名字可配置;
+- 【done】支持热更新（只支持和上游服务器映射相关的配置。监听端口这些不支持）
 - 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - login地址试验IP/cookie次数防攻击模式。 
 - 拦截指定IP/UA的请求;
@@ -214,9 +215,16 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - 支持向下游请求时，动态添加Header；
 - 支持IP白名单;
 - 支持fallback地址;
-- 支持热更新
+
 
 # Change log
+
+## 1.2.
+
+- 在配置文件中添加了autoCors=true/false的支持。如果是true,自动附加cors相关操作。（对php等可以清理缓冲区的后端，可能会失效）
+- 在配置文件中添加了headers 支持，可以向浏览器输出额外的headers;（对php等可以清理缓冲区的后端，可能会失效）
+- 在配置文件中添加了upstreamHeaders支持，可以向上游添加额外的headers;
+
 ## 1.2.0
 - 做了大量的变更，弃用了dotenv形式的配置，改用.json或toml来配置。
 - 支持从网络或git库加载配置文件。
