@@ -17,12 +17,20 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fw
 	hashMethod="UrlHash"
 	autoCors = true
 
+[host."go.404.ms"]	
+	backends=["gotapi.404.ms:3388"]
+	upstreamHeaders={client-testing="2022.2.25"}
+	autoCors = true
+	headers = {content-type="text/html",accept="application/json",x-domain="go.404.ms"}
+
 [host."test.404.ms"]	
 	backends=["localhost:3388"]
 	upstreamHeaders={client-testing="2022.2.25"}
 	autoCors = true
 		headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}
-	
+		method="basic"
+		authName="lanyi"
+		authPass="lanyi2027"
 
 [host."grafana.404.ms"]
 	backends=["172.19.14.149:3000"]

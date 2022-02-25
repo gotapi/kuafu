@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt"
 	"github.com/hashicorp/consul/api"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"hash/crc32"
 	"log"
 	"math/rand"
@@ -17,9 +19,13 @@ import (
 	"time"
 )
 
-const version = "1.2.1"
+const version = "1.2.2"
 
 var serviceLocker = new(sync.Mutex)
+var consulServices = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "kuafu_service_in_consul",
+	Help: "services in consul",
+})
 
 type CustomClaims struct {
 	Email  string `json:"email,omitempty"`
@@ -354,6 +360,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 		servicesData, _, err := client.Health().Service(name, backendTagName, healthyOnly,
 			&api.QueryOptions{})
 		CheckErr(err)
+
 		for _, entry := range servicesData {
 			for _, health := range entry.Checks {
 				if len(health.ServiceID) == 0 {
@@ -385,6 +392,7 @@ func DiscoverServices(addr string, healthyOnly bool) {
 		domain := strings.ReplaceAll(k, "-", ".")
 		tempResult[strings.TrimPrefix(domain, "backend-")] = v
 	}
+	consulServices.Set(float64(len(tempMap)))
 	serviceMap = tempResult
 	serviceLocker.Unlock()
 }

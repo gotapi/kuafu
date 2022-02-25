@@ -219,7 +219,14 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 # Change log
 
-## 1.2.
+## 1.2.2
+添加了几个<kbd>prometheus </kbd>指标：
+- kuafu_total_request 总处理的请求数
+- kuafu_denied_count 因为权限被挡住的请求数
+- kuafu_failed_count 因为后端原因失败入的请求数 
+- kuafu_service_in_consul consul中存在的服务总数
+
+## 1.2.1
 
 - 在配置文件中添加了autoCors=true/false的支持。如果是true,自动附加cors相关操作。（对php等可以清理缓冲区的后端，可能会失效）
 - 在配置文件中添加了headers 支持，可以向浏览器输出额外的headers;（对php等可以清理缓冲区的后端，可能会失效）

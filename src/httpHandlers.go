@@ -5,11 +5,29 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+)
+
+var (
+	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kuafu_total_request",
+		Help: "The total number of processed requests",
+	})
+	deniedRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kuafu_denied_count",
+		Help: "The total number of denied requests",
+	})
+	failedRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "kuafu_failed_count",
+		Help: "The total number of failed requests",
+	})
 )
 
 func appendOnHeader(w http.ResponseWriter, r *http.Request) {
@@ -45,15 +63,19 @@ func updateServiceMap(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(jsonData), &backends)
 	if err != nil {
 		http.Error(w, "can't decode backends from jsonData", 500)
+		failedRequest.Inc()
 		return
 	}
 	if len(backends) == 0 {
+		failedRequest.Inc()
 		http.Error(w, "backends can't be empty ", 500)
+		return
 	}
 	serviceMapInFile[domain] = backends
 	output, err := json.Marshal(&HttpResult{Data: "update succeed.", Status: 200})
 	if err != nil {
 		http.Error(w, "json encode output data failed", 500)
+		failedRequest.Inc()
 		return
 	}
 	WriteOutput(output, w)
@@ -108,6 +130,7 @@ func hotUpdateMapFile() bool {
 }
 
 func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	opsProcessed.Inc()
 	var prefix = kuafuConfig.Dash.Prefix
 	if strings.HasPrefix(prefix, "/") {
 		prefix = prefix[1:]
@@ -157,6 +180,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			*/
 			if !_authorizationOk && !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
 				requestBasicAuthentication(w, r)
+				deniedRequest.Inc()
 				return
 			}
 
@@ -165,23 +189,31 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				theAuthorization := authorizations[0]
 				if strings.HasPrefix(theAuthorization, "Basic ") {
 					if !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
+						deniedRequest.Inc()
 						return
 					}
 				} else {
 					if !h.checkDashToken(w, r) {
+						deniedRequest.Inc()
 						return
 					}
 				}
 			}
 		} else {
 			if !h.checkDashToken(w, r) {
+				deniedRequest.Inc()
 				return
 			}
 		}
 
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/metrics") {
+			promhttp.Handler().ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+"/hotload") {
 			updated := hotUpdateMapFile()
 			if updated {
+				failedRequest.Inc()
 				jsonHttpResult(w, HttpResult{Status: 500, Msg: "hot-reload failed"})
 			} else {
 				jsonHttpResult(w, HttpResult{Status: 200, Msg: "hot-reload succeed"})
@@ -246,6 +278,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if authenticateMethod == "basic" {
 		if !h.checkBasicAuth(w, r, hostRule.AuthName, hostRule.AuthPass) {
+			deniedRequest.Inc()
 			requestBasicAuthentication(w, r)
 			return
 		}
@@ -258,6 +291,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !isPrivateIP(ip) {
+			deniedRequest.Inc()
 			notPrivateIP(w)
 			return
 		}
@@ -277,6 +311,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if er != nil {
 				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
 				handle403(hostRule.LoginUrl, w, r)
+				deniedRequest.Inc()
 				return
 			}
 			theToken = cookie.Value
@@ -294,12 +329,14 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else {
 				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
 				handle403(hostRule.LoginUrl, w, r)
+				deniedRequest.Inc()
 				return
 			}
 		}
 		if strings.Contains(theToken, "Basic ") {
 			log.Printf("Bearer Token should not contain blank. the token is :%v\n,host:%v,path:%v", theToken, r.Host, r.URL.Path)
 			handle403(hostRule.LoginUrl, w, r)
+			deniedRequest.Inc()
 			return
 		}
 		jwtToken, errToken := ParseToken(theToken, hostRule.Secret)
@@ -307,6 +344,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
 				theToken, r.Host, r.URL.Path, hostRule.Secret, errToken)
 			handle403(hostRule.LoginUrl, w, r)
+			deniedRequest.Inc()
 			return
 		} else {
 			log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
@@ -315,6 +353,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if hostRule.RequiredField == "name" {
 			if len(jwtToken.Name) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
+				deniedRequest.Inc()
 				return
 			}
 		}
@@ -322,12 +361,14 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if hostRule.RequiredField == "userId" {
 			if len(jwtToken.UserId) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
+				deniedRequest.Inc()
 				return
 			}
 		}
 		if hostRule.RequiredField == "subject" {
 			if len(jwtToken.Subject) == 0 {
 				handle403(hostRule.LoginUrl, w, r)
+				deniedRequest.Inc()
 				return
 			}
 		}
@@ -349,6 +390,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			backend = kuafuConfig.Kuafu.FallbackAddr
 		} else {
 			http.Error(w, "we can't decide which backend could serve this request ", 502)
+			failedRequest.Inc()
 			return
 		}
 	}
@@ -357,11 +399,13 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("dial upstream error:%v", err)
 		http.Error(w, "dial upstream failed", 500)
+		failedRequest.Inc()
 		WriteOutput([]byte(fmt.Sprintf("dial upstream error:%v", err)), w)
 		return
 	}
 	if err := r.Write(peer); err != nil {
 		log.Printf("write request to upstream error :%v", err)
+		failedRequest.Inc()
 		http.Error(w, "write request to upstream error", 500)
 		return
 	}
@@ -369,11 +413,13 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "hijacker response failed", 500)
+		failedRequest.Inc()
 		return
 	}
 	conn, _, err := hj.Hijack()
 	if err != nil {
 		http.Error(w, "hijacker request failed", 500)
+		failedRequest.Inc()
 		return
 	}
 	log.Printf(
