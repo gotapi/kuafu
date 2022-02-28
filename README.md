@@ -43,7 +43,7 @@ secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwof
 
 [host."grafana.example.com"]
     #这是一个grafana的服务，简单一点，用http basic 认证，知道密码就行。
-    backends=["172.14.32.3:3000]
+    backends=["172.14.32.3:3000"]
     method="basic"	
     authName="someuser"
     authPass="somepassword" 
@@ -194,12 +194,6 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 
 
-### 启动参数
-
-```
-
-```
-
 # todo
 - 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 【deprecated】支持toml配置
@@ -210,11 +204,13 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - login地址试验IP/cookie次数防攻击模式。 
 - 拦截指定IP/UA的请求;
 - 集成 https://github.com/yuin/gopher-lua
-- 集成普罗米修斯
-- 支持向上游请求时，动态添加Header 
-- 支持向下游请求时，动态添加Header；
-- 支持IP白名单;
-- 支持fallback地址;
+- 【done】集成普罗米修斯
+- 【done】支持向上游请求时，动态添加Header 
+- 【done】支持向下游请求时，动态添加Header；
+- 支持IP白名单认证;
+- 【done】支持fallback地址;
+- 自身支持https
+- 自身支持作为一个 简单的http server 服务static files。
 
 
 # Change log
