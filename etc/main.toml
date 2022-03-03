@@ -7,6 +7,12 @@ superUser="admin"
 superPass="admin"
 secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
 
+
+[host."hr.404.ms"]
+	backends=["localhost:13000"]
+	autoCors = true
+	
+
 [host."gotapi.404.ms"]
 	backends=["127.0.0.1:5555","127.0.0.1:5566"]
 	headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}

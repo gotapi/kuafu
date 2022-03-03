@@ -194,23 +194,28 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 
 
-# todo
+# todo；
+- 域名匹配尝试采用正则匹配。
+- 规整报错，分级写入不同的日志文件。
+- fastcgi支持
+- 自身支持https
+- 引入gin来做路由。
+- 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
+- 在authorization模式下，token改成从服务端交换到而不是直接给出。
+- login地址试验IP/cookie次数防攻击模式。 
+- 拦截指定IP/UA的请求;
+- 支持IP白名单认证;
+- 尝试在特定host暴露pprof;
 - 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 【deprecated】支持toml配置
 - 【done】将cookie-jwt和authorization-jwt改名;
 - 【done】cookie名字可配置;
 - 【done】支持热更新（只支持和上游服务器映射相关的配置。监听端口这些不支持）
-- 在authorization模式下，token改成从服务端交换到而不是直接给出。
-- login地址试验IP/cookie次数防攻击模式。 
-- 拦截指定IP/UA的请求;
 - 集成 https://github.com/yuin/gopher-lua
 - 【done】集成普罗米修斯
 - 【done】支持向上游请求时，动态添加Header 
 - 【done】支持向下游请求时，动态添加Header；
-- 支持IP白名单认证;
 - 【done】支持fallback地址;
-- 自身支持https
-- 自身支持作为一个 简单的http server 服务static files。
 
 
 # Change log
