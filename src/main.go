@@ -161,11 +161,6 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 func StartProxyService(addr string) {
 	fmt.Println("start listen..." + addr)
 	r := gin.Default()
-	r.StaticFS("/css/", http.Dir("./dist/css/"))
-	r.StaticFS("/assets/", http.Dir("./dist/assets/"))
-	r.StaticFS("/js/", http.Dir("./dist/"))
-	r.StaticFS("/static/", http.Dir("./dist/static/"))
-
 	httpHandler := WuJingHttpHandler{Engine: r}
 	err := http.ListenAndServe(addr, httpHandler)
 	CheckErr(err)
