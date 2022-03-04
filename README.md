@@ -222,7 +222,8 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 # Change log
 
 ## 1.2.3 
-支持对特定host配置一个root选项，配置后，即变身为一个static file server。
+- 支持对特定host配置一个root选项，配置后，即变身为一个static file server。
+- 引入了gin这个web framework,暂时还没有针对gin的特定动作。
 
 ## 1.2.2
 添加了几个<kbd>prometheus </kbd>指标：
