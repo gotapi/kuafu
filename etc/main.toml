@@ -11,6 +11,7 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fw
 [host."hr.404.ms"]
 	backends=["localhost:13000"]
 	autoCors = true
+	root="/Users/xurenlu/Sites/kuafu/"
 	
 
 [host."gotapi.404.ms"]
