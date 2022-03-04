@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/hashicorp/consul/api"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,7 +20,7 @@ import (
 	"time"
 )
 
-const version = "1.2.2"
+const version = "1.2.3"
 
 var serviceLocker = new(sync.Mutex)
 var consulServices = promauto.NewGauge(prometheus.GaugeOpts{
@@ -53,7 +54,9 @@ type ResponseOfMethods struct {
 	Code int               `json:"code"`
 	Data map[string]string `json:"data"`
 }
-type WuJingHttpHandler map[string]string
+type WuJingHttpHandler struct {
+	Engine *gin.Engine
+}
 
 var (
 	serviceMap       = make(map[string]BackendHostArray)
@@ -157,8 +160,9 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 
 func StartProxyService(addr string) {
 	fmt.Println("start listen..." + addr)
-	handler := WuJingHttpHandler{}
-	err := http.ListenAndServe(addr, handler)
+	r := gin.Default()
+	httpHandler := WuJingHttpHandler{Engine: r}
+	err := http.ListenAndServe(addr, httpHandler)
 	CheckErr(err)
 }
 func Normalize(hostname string) string {

@@ -205,6 +205,7 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - login地址试验IP/cookie次数防攻击模式。 
 - 拦截指定IP/UA的请求;
 - 支持IP白名单认证;
+- 提供一个ruby脚本，检测配置是否冲突或有问题;
 - 尝试在特定host暴露pprof;
 - 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 【deprecated】支持toml配置
@@ -219,6 +220,10 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 
 # Change log
+
+## 1.2.3 
+- 支持对特定host配置一个root选项，配置后，即变身为一个static file server。
+- 引入了gin这个web framework,暂时还没有针对gin的特定动作。
 
 ## 1.2.2
 添加了几个<kbd>prometheus </kbd>指标：

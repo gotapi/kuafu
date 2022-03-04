@@ -12,8 +12,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 )
+
+type OnlyFilesFS struct {
+	fs http.FileSystem
+}
 
 var (
 	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
@@ -383,6 +388,11 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ip = r.Header["X-Real-Ip"][0]
 	}
 
+	if len(hostRule.Root) > 0 {
+		static("/", http.Dir(hostRule.Root), w, r)
+		return
+	}
+
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
 	if backend == "" {
@@ -470,6 +480,29 @@ func handle403(url string, w http.ResponseWriter, r *http.Request) {
 	} else {
 		redirect(w, r, url)
 	}
+}
+
+func lastChar(str string) uint8 {
+	if str == "" {
+		panic("The length of the string can't be 0")
+	}
+	return str[len(str)-1]
+}
+func joinPaths(absolutePath, relativePath string) string {
+	if relativePath == "" {
+		return absolutePath
+	}
+
+	finalPath := path.Join(absolutePath, relativePath)
+	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
+		return finalPath + "/"
+	}
+	return finalPath
+}
+
+func static(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request) {
+	fileServer := http.StripPrefix(root, http.FileServer(fs))
+	fileServer.ServeHTTP(w, r)
 }
 
 // jsonHttpResult 输出httpResult
