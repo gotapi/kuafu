@@ -198,6 +198,7 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - 域名匹配尝试采用正则匹配。
 - 规整报错，分级写入不同的日志文件。
 - fastcgi支持
+- 支持proxy_pass到一个https地址。
 - 自身支持https
 - 引入gin来做路由。
 - 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
