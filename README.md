@@ -195,6 +195,8 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 
 # todo；
+
+- 支持webhook,这样git配置变更时，可以自动重新加载配置。
 - 域名匹配尝试采用正则匹配。
 - 规整报错，分级写入不同的日志文件。
 - fastcgi支持

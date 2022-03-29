@@ -1,5 +1,6 @@
 [kuafu]
 listenAt="0.0.0.0:5577"
+consulAddr="localhost:8500"
 
 [dash]
 prefix="/_dash/secret5577/"
@@ -8,10 +9,18 @@ superPass="admin"
 secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
 
 
-[host."hr.404.ms"]
-	backends=["localhost:13000"]
+[host."hi.404.ms"]
+	backends=["localhost:8080"]
 	autoCors = true
-	root="/Users/xurenlu/Sites/kuafu/"
+	upstreamHeaders={Host="127.0.0.1"}
+
+[host."okr.404.ms"]
+    method="authorization"
+	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
+    requiredField= "UserId"
+    loginUrl= "https://glogin.404.ms/wework/login?_returnUrl=https://hi.404.ms/&_returnMethod=Authorization"
+	hashMethod="UrlHash"
+
 	
 
 [host."gotapi.404.ms"]
