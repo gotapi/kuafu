@@ -13,6 +13,7 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwe;fdogfs;fw
 	backends=["localhost:8080"]
 	autoCors = true
 	upstreamHeaders={Host="127.0.0.1"}
+	allowUid = []
 
 [host."okr.404.ms"]
     method="authorization"
