@@ -56,6 +56,7 @@ type HostConfig struct {
 	UpstreamHeaders map[string]string `toml:"upstreamHeaders"`
 	AutoCors        bool              `toml:"autoCors"`
 	Root            string            `toml:"root"`
+	AllowUid        []string          `toml:"allowUid"`
 }
 
 var kuafuConfig KuafuConfig

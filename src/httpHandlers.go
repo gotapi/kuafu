@@ -377,6 +377,26 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		//如果启用uid访问限制
+		if len(hostRule.AllowUid) > 0 {
+			allow := false
+			//检查当前用户是否在指定用户列表中
+			if len(jwtToken.UserId) > 0 {
+				for _, allowUid := range hostRule.AllowUid {
+					if allowUid == jwtToken.UserId {
+						allow = true
+						break
+					}
+				}
+			}
+
+			if !allow {
+				deniedRequest.Inc()
+				data, _ := json.Marshal(&HttpResult{Status: 403, Data: "uid not in allow user list"})
+				WriteOutput(data, w)
+				return
+			}
+		}
 
 	}
 	var ip string
