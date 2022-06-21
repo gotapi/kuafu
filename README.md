@@ -225,6 +225,9 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 # Change log
 
+## 1.2.4
+- 针对特定站点只允许少数人访问的情况，加了一个userId白名单。
+
 ## 1.2.3 
 - 支持对特定host配置一个root选项，配置后，即变身为一个static file server。
 - 引入了gin这个web framework,暂时还没有针对gin的特定动作。
