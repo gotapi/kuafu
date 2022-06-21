@@ -196,18 +196,18 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 # todo；
 
-- [ ]支持webhook,这样git配置变更时，可以自动重新加载配置。
-- [ ]域名匹配尝试采用正则匹配。
-- [ ]规整报错，分级写入不同的日志文件。
-- [ ]fastcgi支持
-- [ ]支持proxy_pass到一个https地址。
-- [ ]自身支持https
-- [ ]在authorization模式下，token改成从服务端交换到而不是直接给出。
-- [ ]login地址试验IP/cookie次数防攻击模式。 
-- [ ]拦截指定IP/UA的请求;
-- [ ]支持IP白名单认证;
-- [ ]提供一个ruby脚本，检测配置是否冲突或有问题;
-- [ ]集成 https://github.com/yuin/gopher-lua
+- [ ] 支持webhook,这样git配置变更时，可以自动重新加载配置。
+- [ ] 域名匹配尝试采用正则匹配。
+- [ ] 规整报错，分级写入不同的日志文件。
+- [ ] fastcgi支持
+- [ ] 支持proxy_pass到一个https地址。
+- [ ] 自身支持https
+- [ ] 在authorization模式下，token改成从服务端交换到而不是直接给出。
+- [ ] login地址试验IP/cookie次数防攻击模式。 
+- [ ] 拦截指定IP/UA的请求;
+- [ ] 支持IP白名单认证;
+- [ ] 提供一个ruby脚本，检测配置是否冲突或有问题;
+- [ ] 集成 https://github.com/yuin/gopher-lua
 - [x] 支持userId白名单 
 - [x] 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
 - [x] 尝试在特定host暴露pprof;
