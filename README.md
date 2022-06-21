@@ -202,14 +202,14 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - fastcgi支持
 - 支持proxy_pass到一个https地址。
 - 自身支持https
-- 引入gin来做路由。
-- 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
 - 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - login地址试验IP/cookie次数防攻击模式。 
 - 拦截指定IP/UA的请求;
 - 支持IP白名单认证;
 - 提供一个ruby脚本，检测配置是否冲突或有问题;
-- 尝试在特定host暴露pprof;
+- 【done】针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
+- 【done】尝试在特定host暴露pprof;
+- 【done】 引入gin来做路由。
 - 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 【deprecated】支持toml配置
 - 【done】将cookie-jwt和authorization-jwt改名;
