@@ -196,30 +196,31 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 # todo；
 
-- 支持webhook,这样git配置变更时，可以自动重新加载配置。
-- 域名匹配尝试采用正则匹配。
-- 规整报错，分级写入不同的日志文件。
-- fastcgi支持
-- 支持proxy_pass到一个https地址。
-- 自身支持https
-- 在authorization模式下，token改成从服务端交换到而不是直接给出。
-- login地址试验IP/cookie次数防攻击模式。 
-- 拦截指定IP/UA的请求;
-- 支持IP白名单认证;
-- 提供一个ruby脚本，检测配置是否冲突或有问题;
-- 【done】针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
-- 【done】尝试在特定host暴露pprof;
-- 【done】 引入gin来做路由。
-- 【done】在XMLHTTPRequest方式下，不做重定向，而是返回403；
+- [ ]支持webhook,这样git配置变更时，可以自动重新加载配置。
+- [ ]域名匹配尝试采用正则匹配。
+- [ ]规整报错，分级写入不同的日志文件。
+- [ ]fastcgi支持
+- [ ]支持proxy_pass到一个https地址。
+- [ ]自身支持https
+- [ ]在authorization模式下，token改成从服务端交换到而不是直接给出。
+- [ ]login地址试验IP/cookie次数防攻击模式。 
+- [ ]拦截指定IP/UA的请求;
+- [ ]支持IP白名单认证;
+- [ ]提供一个ruby脚本，检测配置是否冲突或有问题;
+- [ ]集成 https://github.com/yuin/gopher-lua
+- [x] 支持userId白名单 
+- [x] 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
+- [x] 尝试在特定host暴露pprof;
+- [x]  引入gin来做路由。
+- [x] 在XMLHTTPRequest方式下，不做重定向，而是返回403；
 - 【deprecated】支持toml配置
-- 【done】将cookie-jwt和authorization-jwt改名;
-- 【done】cookie名字可配置;
-- 【done】支持热更新（只支持和上游服务器映射相关的配置。监听端口这些不支持）
-- 集成 https://github.com/yuin/gopher-lua
-- 【done】集成普罗米修斯
-- 【done】支持向上游请求时，动态添加Header 
-- 【done】支持向下游请求时，动态添加Header；
-- 【done】支持fallback地址;
+- [x] 将cookie-jwt和authorization-jwt改名;
+- [x] cookie名字可配置;
+- [x] 支持热更新（只支持和上游服务器映射相关的配置。监听端口这些不支持）
+- [x] 集成普罗米修斯
+- [x] 支持向上游请求时，动态添加Header 
+- [x] 支持向下游请求时，动态添加Header；
+- [x] 支持fallback地址;
 
 
 # Change log
