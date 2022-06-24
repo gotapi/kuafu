@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"runtime"
 	"strings"
 )
@@ -45,22 +46,22 @@ func InitIpArray() {
 }
 
 func Home() (string, error) {
-	user, err := user.Current()
+	currentUser, err := user.Current()
 	if nil == err {
-		return user.HomeDir, nil
+		return currentUser.HomeDir, nil
 	}
 
 	// cross compile support
 
 	if "windows" == runtime.GOOS {
-		return homeWindows()
+		return HomeWindows()
 	}
 
 	// Unix-like system, so just assume Unix
-	return homeUnix()
+	return HomeUnix()
 }
 
-func homeUnix() (string, error) {
+func HomeUnix() (string, error) {
 	// First prefer the HOME environmental variable
 	if home := os.Getenv("HOME"); home != "" {
 		return home, nil
@@ -82,11 +83,11 @@ func homeUnix() (string, error) {
 	return result, nil
 }
 
-func homeWindows() (string, error) {
+func HomeWindows() (string, error) {
 	drive := os.Getenv("HOMEDRIVE")
-	path := os.Getenv("HOMEPATH")
-	home := drive + path
-	if drive == "" || path == "" {
+	currentPath := os.Getenv("HOMEPATH")
+	home := drive + currentPath
+	if drive == "" || currentPath == "" {
 		home = os.Getenv("USERPROFILE")
 	}
 	if home == "" {
@@ -94,4 +95,22 @@ func homeWindows() (string, error) {
 	}
 
 	return home, nil
+}
+
+func lastChar(str string) uint8 {
+	if str == "" {
+		panic("The length of the string can't be 0")
+	}
+	return str[len(str)-1]
+}
+func joinPaths(absolutePath, relativePath string) string {
+	if relativePath == "" {
+		return absolutePath
+	}
+
+	finalPath := path.Join(absolutePath, relativePath)
+	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
+		return finalPath + "/"
+	}
+	return finalPath
 }

@@ -138,35 +138,52 @@ func CheckErr(err error) {
 		os.Exit(1)
 	}
 }
-func StatusHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("check status.")
-	WriteOutput([]byte("status ok"), w)
+func StatusHandler(c *gin.Context) {
+	WriteOutput([]byte("status ok"), c.Writer)
 }
-
-func StartProxyService(addr string) {
+func StartHttpService(addr string) {
 	fmt.Println("start listen..." + addr)
+	var prefix = kuafuConfig.Dash.Prefix
+	if strings.HasPrefix(prefix, "/") {
+		prefix = prefix[1:]
+	}
+	if strings.HasSuffix(prefix, "/") {
+		prefix = prefix[0 : len(prefix)-1]
+	}
+	for {
+		if !strings.Contains(prefix, "//") {
+			break
+		}
+		prefix = strings.ReplaceAll(prefix, "//", "/")
+	}
+
 	r := gin.Default()
-	httpHandler := KuafuHttpHandler{Engine: r}
-	err := http.ListenAndServe(addr, httpHandler)
+	r.Use(KuafuHeaders())
+	r.Use(KuafuStat())
+	apiGroup := r.Group("/" + prefix)
+	apiGroup.Use(KuafuValidation())
+	apiGroup.GET("/_open/ip", HandleClientIp)
+	apiGroup.GET("/_open/login", HandleLogin)
+	apiGroup.GET("/rules", HandleAllRules)
+	apiGroup.GET("/backends", HandleAllBackends)
+	apiGroup.GET("/status", StatusHandler)
+	apiGroup.GET("/backend/:host", GetBackendsHandle)
+	apiGroup.GET("/hashMethods", showHashMethodsHandle)
+	apiGroup.GET("/update/hashMethod", updateHashHandle)
+	apiGroup.GET("/update/backend", updateServiceMap)
+	apiGroup.GET("/reload/"+hotLoadSecret, HandleHotReload)
+	apiGroup.Any("/metrics", HandleMetrics)
+	r.Any("/", KuafuProxy)
+	err := r.Run(addr)
 	CheckErr(err)
 }
 func Normalize(hostname string) string {
 	return strings.ToLower(hostname)
 }
 
-func GetAllBackends(hostname string) string {
-	data := serviceMap[Normalize(hostname)]
-	if data == nil {
-		return ""
-	}
-	if len(data) == 0 {
-		return ""
-	}
-	jsonString, er := json.Marshal(data)
-	if er == nil {
-		return string(jsonString)
-	}
-	return ""
+func GetAllBackends(hostname string) BackendHostArray {
+	return serviceMap[Normalize(hostname)]
+
 }
 func GetBackendServerByHostName(hostnameOriginal string, ip string, path string, method string) string {
 	hostname := Normalize(hostnameOriginal)
@@ -224,20 +241,13 @@ func WriteOutput(data []byte, w http.ResponseWriter) {
 	}
 }
 
-func showHashMethodsHandle(w http.ResponseWriter, r *http.Request) {
+func showHashMethodsHandle(c *gin.Context) {
 	var response ResponseOfMethods
-	response.Data = HashMethodMap
-	response.Code = 200
-	jsonTxt, er := json.Marshal(response)
-	if er != nil {
-		WriteOutput([]byte("{'code':200,'msg':'json encode failed'}"), w)
-	} else {
-		WriteOutput(jsonTxt, w)
-	}
+	c.JSON(200, response)
 }
 
-func notPrivateIP(w http.ResponseWriter) {
-	http.Error(w, "you are not from private network", http.StatusUnauthorized)
+func notPrivateIP(c *gin.Context) {
+	http.Error(c.Writer, "you are not from private network", http.StatusUnauthorized)
 }
 func getIp(r *http.Request) net.IP {
 	obj := r.Header.Values("x-real-ip")
@@ -259,8 +269,9 @@ func getIp(r *http.Request) net.IP {
 func (h KuafuHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
 	http.Error(w, msg, status)
 }
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
+func HandleLogin(c *gin.Context) {
+	r := c.Request
+	err := c.Request.ParseForm()
 	if err != nil {
 		log.Printf("parse form parameters failed  ")
 		return
@@ -268,29 +279,27 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	username := ""
 	password := ""
 	if r.Form["username"] != nil {
-		username = strings.Join(r.Form["username"], "")
+		username = strings.Join(c.Request.Form["username"], "")
 	}
 	if r.Form["password"] != nil {
-		password = strings.Join(r.Form["password"], "")
+		password = strings.Join(c.Request.Form["password"], "")
 	}
 
 	if username == kuafuConfig.Dash.SuperUser && password == kuafuConfig.Dash.SuperPass {
 		token, err := GenerateDashboardJwtToken(dashboardSecret)
 		if err != nil {
-			data, _ := json.Marshal(&HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", err)})
-			WriteOutput(data, w)
+			c.JSON(403, HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", err)})
+
 		} else {
-			data, _ := json.Marshal(&HttpResult{Status: 200, Data: token})
-			WriteOutput(data, w)
+			c.JSON(200, HttpResult{Status: 200, Data: token})
 		}
 	} else {
-		data, _ := json.Marshal(&HttpResult{Status: 403, Data: "login failed"})
-		WriteOutput(data, w)
+		c.JSON(403, HttpResult{Status: 403, Data: "login failed"})
 	}
 
 }
 
-func (h KuafuHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request) bool {
+func checkDashToken(w http.ResponseWriter, r *http.Request) bool {
 	var theToken string
 	var authorizations, _authorizationOk = r.Header["Authorization"]
 	if _authorizationOk {
@@ -413,7 +422,7 @@ func main() {
 	}
 	log.Printf("hotreload url:%v", "/"+kuafuConfig.Dash.Prefix+"/"+"/hotload/"+hotLoadSecret)
 	go HandleOsKill()
-	go StartProxyService(kuafuConfig.Kuafu.ListenAt)
+	go StartHttpService(kuafuConfig.Kuafu.ListenAt)
 	if kuafuConfig.Kuafu.ConsulAddr != "" {
 		go DoDiscover(kuafuConfig.Kuafu.ConsulAddr)
 	} else {

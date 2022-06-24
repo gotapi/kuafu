@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,13 +14,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"path"
 	"strings"
 )
-
-type OnlyFilesFS struct {
-	fs http.FileSystem
-}
 
 var (
 	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
@@ -36,10 +32,6 @@ var (
 	})
 )
 
-func appendKuafuHeaders(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-Kuafu-Version", version)
-}
-
 func handleCors(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
@@ -51,7 +43,9 @@ func handleCors(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func updateServiceMap(w http.ResponseWriter, r *http.Request) {
+func updateServiceMap(c *gin.Context) {
+	r := c.Request
+	w := c.Writer
 	err := r.ParseForm()
 	if err != nil {
 		log.Printf("parse form parameters failed  ")
@@ -78,17 +72,11 @@ func updateServiceMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serviceMapInFile[domain] = backends
-	output, err := json.Marshal(&HttpResult{Data: "update succeed.", Status: 200})
-	if err != nil {
-		http.Error(w, "json encode output data failed", 500)
-		failedRequest.Inc()
-		return
-	}
-	WriteOutput(output, w)
+	c.JSON(200, HttpResult{Data: "update succeed.", Status: 200})
 }
 
-func HandleClientIp(w http.ResponseWriter, r *http.Request) {
-	obj := r.Header.Values("x-real-ip")
+func HandleClientIp(c *gin.Context) {
+	obj := c.Request.Header.Values("x-real-ip")
 	xRealIpStr := ""
 	if len(obj) > 0 {
 		idx := strings.LastIndex(obj[0], ":")
@@ -98,31 +86,30 @@ func HandleClientIp(w http.ResponseWriter, r *http.Request) {
 			xRealIpStr = obj[0]
 		}
 	} else {
-		idx := strings.LastIndex(r.RemoteAddr, ":")
-		xRealIpStr = r.RemoteAddr[:idx]
+		idx := strings.LastIndex(c.Request.RemoteAddr, ":")
+		xRealIpStr = c.Request.RemoteAddr[:idx]
 	}
-
-	handleCors(w, r)
-
-	data, _ := json.Marshal(&HttpResult{
+	c.JSON(200, HttpResult{
 		Data:   xRealIpStr,
 		Status: 200})
-	WriteOutput(data, w)
 }
-func HandleAllBackends(w http.ResponseWriter, r *http.Request) {
-	_data, er := json.Marshal(serviceMap)
-	if er != nil {
-		msg := "{'code':401,msg:'can't get message'}"
-		WriteOutput([]byte(msg), w)
-		return
+func HandleAllBackends(c *gin.Context) {
+	c.JSON(200, serviceMap)
+}
+func HandleHotReload(c *gin.Context) {
+	updated := hotUpdateMapFile()
+	if updated {
+		failedRequest.Inc()
+		c.JSON(500, HttpResult{Status: 500, Msg: "hot reload failed"})
+	} else {
+		c.JSON(200, HttpResult{Status: 200, Msg: "hot reload succeed"})
 	}
-	WriteOutput(_data, w)
 }
 
-func redirect(w http.ResponseWriter, r *http.Request, redirectUrl string) {
-	http.Redirect(w, r, redirectUrl, http.StatusFound)
+func HandleMetrics(c *gin.Context) {
+	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
-func requestBasicAuthentication(w http.ResponseWriter, r *http.Request) {
+func requestBasicAuthentication(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
 }
@@ -135,33 +122,22 @@ func hotUpdateMapFile() bool {
 	return true
 }
 
-/**
-处理一些内部API
-*/
-func ginServe(c *gin.Context) {
-
+func KuafuStat() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		opsProcessed.Inc()
+		c.Next()
+	}
 }
-func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	opsProcessed.Inc()
-	var prefix = kuafuConfig.Dash.Prefix
-	if strings.HasPrefix(prefix, "/") {
-		prefix = prefix[1:]
+func KuafuHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("X-Kuafu-Version", version)
+		c.Next()
 	}
-	if strings.HasSuffix(prefix, "/") {
-		prefix = prefix[0 : len(prefix)-1]
-	}
-	for {
-		if !strings.Contains(prefix, "//") {
-			break
-		}
-		prefix = strings.ReplaceAll(prefix, "//", "/")
-	}
-	appendKuafuHeaders(w, r)
-	if r.Method == "OPTIONS" {
-		handleCors(w, r)
-		WriteOutput([]byte("{}"), w)
-		return
-	}
+}
+func KuafuProxy(c *gin.Context) {
+
+	w := c.Writer
+	r := c.Request
 
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
@@ -173,103 +149,6 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if queryHost == "" {
 		queryHost = hostSeg
 	}
-	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/") {
-		handleCors(w, r)
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/ip") {
-			HandleClientIp(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/_open/login") {
-			HandleLogin(w, r)
-			return
-		}
-	}
-	/**
-	如果是内网IP,则支持Basic Authorization 和 Token;
-	有Token的情况下，只校验Token，不管Www basic authorization；
-	如果不是内网IP,则只支持Token;
-	*/
-	if strings.HasPrefix(r.URL.Path, "/"+prefix+"/") {
-		handleCors(w, r)
-		ip := getIp(r)
-		if ip != nil && isPrivateIP(ip) {
-			var authorizations, _authorizationOk = r.Header["Authorization"]
-			/**
-			如果Authorization 不存在,检查basic authorization 也失败了；
-			*/
-			if !_authorizationOk && !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
-				requestBasicAuthentication(w, r)
-				deniedRequest.Inc()
-				return
-			}
-
-			/** 如果有Authorization ，检查token也失败了，拒绝服务 */
-			if _authorizationOk {
-				theAuthorization := authorizations[0]
-				if strings.HasPrefix(theAuthorization, "Basic ") {
-					if !h.checkBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
-						deniedRequest.Inc()
-						return
-					}
-				} else {
-					if !h.checkDashToken(w, r) {
-						deniedRequest.Inc()
-						return
-					}
-				}
-			}
-		} else {
-			if !h.checkDashToken(w, r) {
-				deniedRequest.Inc()
-				return
-			}
-		}
-
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/metrics") {
-			promhttp.Handler().ServeHTTP(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+"/hotload/"+hotLoadSecret) {
-			updated := hotUpdateMapFile()
-			if updated {
-				failedRequest.Inc()
-				jsonHttpResult(w, HttpResult{Status: 500, Msg: "hot-reload failed"})
-			} else {
-				jsonHttpResult(w, HttpResult{Status: 200, Msg: "hot-reload succeed"})
-			}
-			return
-		}
-
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/rules") {
-			HandleAllRules(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/backends") {
-			HandleAllBackends(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/status") {
-			StatusHandler(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/backend/") {
-			GetBackendsHandle(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/hashMethods") {
-			showHashMethodsHandle(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/update/hashMethod") {
-			updateHashHandle(w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/update/backend") {
-			updateServiceMap(w, r)
-			return
-		}
-	}
-
 	hostRule, okRule := kuafuConfig.Hosts[queryHost]
 	authenticateMethod := "none"
 	backendHashMethod := RandHash
@@ -296,9 +175,9 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		backendHashMethod = RandHash
 	}
 	if authenticateMethod == "basic" {
-		if !h.checkBasicAuth(w, r, hostRule.AuthName, hostRule.AuthPass) {
+		if !CheckBasicAuth(w, r, hostRule.AuthName, hostRule.AuthPass) {
 			deniedRequest.Inc()
-			requestBasicAuthentication(w, r)
+			requestBasicAuthentication(w)
 			return
 		}
 	}
@@ -311,7 +190,7 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if !isPrivateIP(ip) {
 			deniedRequest.Inc()
-			notPrivateIP(w)
+			notPrivateIP(c)
 			return
 		}
 	}
@@ -329,7 +208,7 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cookie, er = r.Cookie(tokenName)
 			if er != nil {
 				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
-				handle403(hostRule.LoginUrl, w, r)
+				handle403(hostRule.LoginUrl, c)
 				deniedRequest.Inc()
 				return
 			}
@@ -347,14 +226,14 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
-				handle403(hostRule.LoginUrl, w, r)
+				handle403(hostRule.LoginUrl, c)
 				deniedRequest.Inc()
 				return
 			}
 		}
 		if strings.Contains(theToken, "Basic ") {
 			log.Printf("Bearer Token should not contain blank. the token is :%v\n,host:%v,path:%v", theToken, r.Host, r.URL.Path)
-			handle403(hostRule.LoginUrl, w, r)
+			handle403(hostRule.LoginUrl, c)
 			deniedRequest.Inc()
 			return
 		}
@@ -362,7 +241,7 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if errToken != nil {
 			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
 				theToken, r.Host, r.URL.Path, hostRule.Secret, errToken)
-			handle403(hostRule.LoginUrl, w, r)
+			handle403(hostRule.LoginUrl, c)
 			deniedRequest.Inc()
 			return
 		} else {
@@ -371,7 +250,7 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		hostRule.RequiredField = strings.ToLower(hostRule.RequiredField)
 		if hostRule.RequiredField == "name" {
 			if len(jwtToken.Name) == 0 {
-				handle403(hostRule.LoginUrl, w, r)
+				handle403(hostRule.LoginUrl, c)
 				deniedRequest.Inc()
 				return
 			}
@@ -379,14 +258,14 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if hostRule.RequiredField == "userId" {
 			if len(jwtToken.UserId) == 0 {
-				handle403(hostRule.LoginUrl, w, r)
+				handle403(hostRule.LoginUrl, c)
 				deniedRequest.Inc()
 				return
 			}
 		}
 		if hostRule.RequiredField == "subject" {
 			if len(jwtToken.Subject) == 0 {
-				handle403(hostRule.LoginUrl, w, r)
+				handle403(hostRule.LoginUrl, c)
 				deniedRequest.Inc()
 				return
 			}
@@ -423,7 +302,7 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(hostRule.Root) > 0 {
-		static("/", http.Dir(hostRule.Root), w, r)
+		HandleStatic("/", http.Dir(hostRule.Root), w, r)
 		return
 	}
 
@@ -505,62 +384,77 @@ func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 }
+func KuafuValidation() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		w := c.Writer
+		r := c.Request
+		/**
+		如果是内网IP,则支持Basic Authorization 和 Token;
+		有Token的情况下，只校验Token，不管Www basic authorization；
+		如果不是内网IP,则只支持Token;
+		*/
 
-func handle403(url string, w http.ResponseWriter, r *http.Request) {
-	requestWith := r.Header.Get("X-Requested-With")
+		ip := getIp(r)
+		if ip != nil && isPrivateIP(ip) {
+			var authorizations, _authorizationOk = r.Header["Authorization"]
+			/**
+			如果Authorization 不存在,检查basic authorization 也失败了；
+			*/
+			if !_authorizationOk && !CheckBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
+				requestBasicAuthentication(w)
+				deniedRequest.Inc()
+				c.AbortWithError(403, errors.New("need Basic Auth"))
+				return
+			}
+
+			/** 如果有Authorization ，检查token也失败了，拒绝服务 */
+			if _authorizationOk {
+				theAuthorization := authorizations[0]
+				if strings.HasPrefix(theAuthorization, "Basic ") {
+					if !CheckBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
+						deniedRequest.Inc()
+						c.AbortWithError(403, errors.New("basic auth failed"))
+						return
+					}
+				} else {
+					if !checkDashToken(w, r) {
+						deniedRequest.Inc()
+						c.AbortWithError(403, errors.New("dash token failed"))
+						return
+					}
+				}
+			}
+		} else {
+			if !checkDashToken(w, r) {
+				deniedRequest.Inc()
+				c.AbortWithError(403, errors.New("dash token failed"))
+				return
+			}
+		}
+		c.Next()
+	}
+
+}
+func handle403(url string, c *gin.Context) {
+	requestWith := c.Request.Header.Get("X-Requested-With")
 	if requestWith == "XMLHttpRequest" {
-		data, _ := json.Marshal(&HttpResult{Status: 403, Data: url})
-		WriteOutput(data, w)
+		c.JSON(200, HttpResult{Status: 403, Data: url})
 	} else {
-		redirect(w, r, url)
+		c.Redirect(301, url)
 	}
 }
 
-func lastChar(str string) uint8 {
-	if str == "" {
-		panic("The length of the string can't be 0")
-	}
-	return str[len(str)-1]
-}
-func joinPaths(absolutePath, relativePath string) string {
-	if relativePath == "" {
-		return absolutePath
-	}
-
-	finalPath := path.Join(absolutePath, relativePath)
-	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
-		return finalPath + "/"
-	}
-	return finalPath
-}
-
-func static(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request) {
+func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request) {
 	fileServer := http.StripPrefix(root, http.FileServer(fs))
 	fileServer.ServeHTTP(w, r)
 }
 
-// jsonHttpResult 输出httpResult
-func jsonHttpResult(w http.ResponseWriter, data HttpResult) {
-	_data, er := json.Marshal(data)
-	if er != nil {
-		msg := "{'code':401,msg:json code failed '}"
-		WriteOutput([]byte(msg), w)
-		return
-	}
-	WriteOutput(_data, w)
+func HandleAllRules(c *gin.Context) {
+	c.JSON(200, kuafuConfig.Hosts)
 }
 
-func HandleAllRules(w http.ResponseWriter, r *http.Request) {
-	_data, er := json.Marshal(kuafuConfig.Hosts)
-	if er != nil {
-		msg := "{'code':401,msg:'can't json_encode ruleMap '}"
-		WriteOutput([]byte(msg), w)
-		return
-	}
-	WriteOutput(_data, w)
-}
-
-func updateHashHandle(w http.ResponseWriter, r *http.Request) {
+func updateHashHandle(c *gin.Context) {
+	r := c.Request
 	err := r.ParseForm()
 	if err != nil {
 		log.Printf("parse form parameters failed  ")
@@ -576,7 +470,7 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if method != RandHash && method != IPHash && method != UrlHash && method != LoadRound {
-		WriteOutput([]byte("{'code':200,'msg':'method invalid'}"), w)
+		c.JSON(400, HttpResult{Status: 400, Msg: "method invalid"})
 		return
 	}
 	if domain != "" && method != "" {
@@ -584,26 +478,25 @@ func updateHashHandle(w http.ResponseWriter, r *http.Request) {
 		HashMethodMap[domain] = method
 		methodLocker.Unlock()
 	}
-	WriteOutput([]byte("{'code':200}"), w)
+	c.JSON(200, HttpResult{Status: 200, Data: ""})
 }
 
 // GetBackendsHandle 取到后端机器列表;
-func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	runes := []rune(path)
-	start := len(strings.ReplaceAll(kuafuConfig.Dash.Prefix+"/backend/", "//", "/"))
-	queryHost := string(runes[start:len(path)])
+func GetBackendsHandle(c *gin.Context) {
+	queryHost := c.Param("host")
 	backends := GetAllBackends(queryHost)
-	WriteOutput([]byte(backends), w)
+	if backends == nil {
+		c.JSON(404, HttpResult{Status: 404, Msg: "not found "})
+	} else {
+		c.JSON(200, backends)
+	}
 }
 
-/**
-检查是否通过了http basic 认证，通过了返回true,不通过返回false
-*/
-func (h KuafuHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
+//CheckBasicAuth 检查是否通过了http basic 认证，通过了返回true,不通过返回false
+func CheckBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		requestBasicAuthentication(w, r)
+		requestBasicAuthentication(w)
 		return false
 	}
 	usernameHash := sha256.Sum256([]byte(username))
@@ -614,7 +507,7 @@ func (h KuafuHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request,
 	usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
 	passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
 	if !usernameMatch || !passwordMatch {
-		requestBasicAuthentication(w, r)
+		requestBasicAuthentication(w)
 		return false
 	}
 	return true

@@ -44,7 +44,7 @@ type KuafuConfig struct {
 }
 type HostConfig struct {
 	Method          string            `toml:"method"`
-	Secret          string            `toml:"secret"`
+	Secret          string            `json:"-",toml:"secret"`
 	Backends        []string          `toml:"backends"`
 	RequiredField   string            `toml:"requiredFields"`
 	TokenName       string            `toml:"tokenName"`
