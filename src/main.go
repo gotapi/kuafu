@@ -22,6 +22,9 @@ import (
 
 const version = "1.2.3"
 
+/**
+上个锁（在更新后端服务器列表的时候锁一下）
+*/
 var serviceLocker = new(sync.Mutex)
 var consulServices = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "kuafu_service_in_consul",
@@ -54,7 +57,7 @@ type ResponseOfMethods struct {
 	Code int               `json:"code"`
 	Data map[string]string `json:"data"`
 }
-type WuJingHttpHandler struct {
+type KuafuHttpHandler struct {
 	Engine *gin.Engine
 }
 
@@ -63,6 +66,7 @@ var (
 	serviceMapInFile = make(map[string]BackendHostArray)
 	HashMethodMap    = make(map[string]string)
 	methodLocker     = new(sync.Mutex)
+	hotLoadSecret    = RandStringBytes(32)
 )
 
 const (
@@ -73,25 +77,6 @@ const (
 )
 
 var privateIPBlocks []*net.IPNet
-
-func InitIpArray() {
-	for _, cidr := range []string{
-		"127.0.0.0/8",    // IPv4 loopback
-		"10.0.0.0/8",     // RFC1918
-		"172.16.0.0/12",  // RFC1918
-		"192.168.0.0/16", // RFC1918
-		"169.254.0.0/16", // RFC3927 link-local
-		"::1/128",        // IPv6 loopback
-		"fe80::/10",      // IPv6 link-local
-		"fc00::/7",       // IPv6 unique local addr
-	} {
-		_, block, err := net.ParseCIDR(cidr)
-		if err != nil {
-			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
-		}
-		privateIPBlocks = append(privateIPBlocks, block)
-	}
-}
 
 func isPrivateIP(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
@@ -161,7 +146,7 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 func StartProxyService(addr string) {
 	fmt.Println("start listen..." + addr)
 	r := gin.Default()
-	httpHandler := WuJingHttpHandler{Engine: r}
+	httpHandler := KuafuHttpHandler{Engine: r}
 	err := http.ListenAndServe(addr, httpHandler)
 	CheckErr(err)
 }
@@ -271,7 +256,7 @@ func getIp(r *http.Request) net.IP {
 	return net.ParseIP(xRealIpStr)
 }
 
-func (h WuJingHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
+func (h KuafuHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
 	http.Error(w, msg, status)
 }
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +290,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h WuJingHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request) bool {
+func (h KuafuHttpHandler) checkDashToken(w http.ResponseWriter, r *http.Request) bool {
 	var theToken string
 	var authorizations, _authorizationOk = r.Header["Authorization"]
 	if _authorizationOk {
@@ -426,7 +411,7 @@ func main() {
 		}(f)
 		log.SetOutput(f)
 	}
-
+	log.Printf("hotreload url:%v", "/"+kuafuConfig.Dash.Prefix+"/"+"/hotload/"+hotLoadSecret)
 	go HandleOsKill()
 	go StartProxyService(kuafuConfig.Kuafu.ListenAt)
 	if kuafuConfig.Kuafu.ConsulAddr != "" {

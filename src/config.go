@@ -83,7 +83,7 @@ func generateServiceMap() {
 	}
 	serviceMapInFile = sMap
 }
-func readConfig(content []byte, filepath string) error {
+func loadLocalConfig(content []byte, filepath string) error {
 	if strings.HasSuffix(filepath, ".toml") {
 		_, errParsed := toml.Decode(string(content), &kuafuConfig)
 		return errParsed
@@ -91,9 +91,9 @@ func readConfig(content []byte, filepath string) error {
 	if strings.HasSuffix(filepath, ".json") {
 		return json.Unmarshal(content, &kuafuConfig)
 	}
-	return errors.New("kuafu support only toml/json configuration")
+	return errors.New("kuafu support toml/json configuration only")
 }
-func loadFromHttp(url string) error {
+func loadHttpConfig(url string) error {
 	var req *http.Request
 	var err error
 	if req, err = http.NewRequest(http.MethodGet, url, nil); err != nil {
@@ -112,7 +112,7 @@ func loadFromHttp(url string) error {
 	if err != nil {
 		return err
 	}
-	err = readConfig(p, url)
+	err = loadLocalConfig(p, url)
 	return nil
 }
 
@@ -125,7 +125,9 @@ func Info(format string, args ...interface{}) {
 func Warning(format string, args ...interface{}) {
 	fmt.Printf("\x1b[36;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
 }
-func loadFromGit(path string, privateKeyFile string, password string) error {
+
+// logGitConfig 从git仓库拉取配置文件。
+func logGitConfig(path string, privateKeyFile string, password string) error {
 	var err error
 	_, err = os.Stat(privateKeyFile)
 	if err != nil {
@@ -178,7 +180,7 @@ func loadFromGit(path string, privateKeyFile string, password string) error {
 				configFileFound = true
 				content, err = file.Contents()
 				if err == nil {
-					err = readConfig([]byte(content), tomlPath)
+					err = loadLocalConfig([]byte(content), tomlPath)
 				}
 			}
 			return nil
@@ -195,7 +197,7 @@ func loadFromDisk(path string) error {
 	if err != nil {
 		return err
 	}
-	return readConfig(content, path)
+	return loadLocalConfig(content, path)
 }
 func initFlags() {
 	flag.StringVar(&configFile, "config", "./etc/kuafu.toml", "configuration file of kuafu")
@@ -217,10 +219,10 @@ func initFlags() {
 
 func loadConfig() error {
 	if strings.HasPrefix(configFile, "http://") || strings.HasPrefix(configFile, "https://") {
-		return loadFromHttp(configFile)
+		return loadHttpConfig(configFile)
 	}
 	if strings.HasPrefix(configFile, "git@") {
-		return loadFromGit(configFile, privateKeyFile, sshPassword)
+		return logGitConfig(configFile, privateKeyFile, sshPassword)
 	}
 	return loadFromDisk(configFile)
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -35,7 +36,7 @@ var (
 	})
 )
 
-func appendOnHeader(w http.ResponseWriter, r *http.Request) {
+func appendKuafuHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Kuafu-Version", version)
 }
 
@@ -134,7 +135,13 @@ func hotUpdateMapFile() bool {
 	return true
 }
 
-func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+/**
+处理一些内部API
+*/
+func ginServe(c *gin.Context) {
+
+}
+func (h KuafuHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	opsProcessed.Inc()
 	var prefix = kuafuConfig.Dash.Prefix
 	if strings.HasPrefix(prefix, "/") {
@@ -143,12 +150,19 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(prefix, "/") {
 		prefix = prefix[0 : len(prefix)-1]
 	}
-	appendOnHeader(w, r)
+	for {
+		if !strings.Contains(prefix, "//") {
+			break
+		}
+		prefix = strings.ReplaceAll(prefix, "//", "/")
+	}
+	appendKuafuHeaders(w, r)
 	if r.Method == "OPTIONS" {
 		handleCors(w, r)
 		WriteOutput([]byte("{}"), w)
 		return
 	}
+
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
 	if idx < 0 {
@@ -215,7 +229,7 @@ func (h WuJingHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			promhttp.Handler().ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+"/hotload") {
+		if strings.HasPrefix(r.URL.Path, "/"+prefix+"/"+"/hotload/"+hotLoadSecret) {
 			updated := hotUpdateMapFile()
 			if updated {
 				failedRequest.Inc()
@@ -586,7 +600,7 @@ func GetBackendsHandle(w http.ResponseWriter, r *http.Request) {
 /**
 检查是否通过了http basic 认证，通过了返回true,不通过返回false
 */
-func (h WuJingHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
+func (h KuafuHttpHandler) checkBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		requestBasicAuthentication(w, r)
