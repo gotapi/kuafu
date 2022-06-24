@@ -138,7 +138,7 @@ func CheckErr(err error) {
 		os.Exit(1)
 	}
 }
-func StatusHandler(c *gin.Context) {
+func HandleStatusPage(c *gin.Context) {
 	WriteOutput([]byte("status ok"), c.Writer)
 }
 func StartHttpService(addr string) {
@@ -166,11 +166,11 @@ func StartHttpService(addr string) {
 	apiGroup.GET("/_open/login", HandleLogin)
 	apiGroup.GET("/rules", HandleAllRules)
 	apiGroup.GET("/backends", HandleAllBackends)
-	apiGroup.GET("/status", StatusHandler)
-	apiGroup.GET("/backend/:host", GetBackendsHandle)
-	apiGroup.GET("/hashMethods", showHashMethodsHandle)
-	apiGroup.GET("/update/hashMethod", updateHashHandle)
-	apiGroup.GET("/update/backend", updateServiceMap)
+	apiGroup.GET("/status", HandleStatusPage)
+	apiGroup.GET("/backend/:host", HandleBackends4SingleHost)
+	apiGroup.GET("/hashMethods", HandleShowHashMethodsHandle)
+	apiGroup.GET("/update/hashMethod", HandleUpdateHashHandle)
+	apiGroup.GET("/update/backend", HandleUpdateServiceMap)
 	apiGroup.GET("/reload/"+hotLoadSecret, HandleHotReload)
 	apiGroup.Any("/metrics", HandleMetrics)
 	r.Any("/", KuafuProxy)
@@ -183,7 +183,6 @@ func Normalize(hostname string) string {
 
 func GetAllBackends(hostname string) BackendHostArray {
 	return serviceMap[Normalize(hostname)]
-
 }
 func GetBackendServerByHostName(hostnameOriginal string, ip string, path string, method string) string {
 	hostname := Normalize(hostnameOriginal)
@@ -241,7 +240,7 @@ func WriteOutput(data []byte, w http.ResponseWriter) {
 	}
 }
 
-func showHashMethodsHandle(c *gin.Context) {
+func HandleShowHashMethodsHandle(c *gin.Context) {
 	var response ResponseOfMethods
 	c.JSON(200, response)
 }

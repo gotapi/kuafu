@@ -32,7 +32,7 @@ var (
 	})
 )
 
-func handleCors(w http.ResponseWriter, r *http.Request) {
+func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
@@ -40,10 +40,12 @@ func handleCors(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 	}
 }
 
-func updateServiceMap(c *gin.Context) {
+func HandleUpdateServiceMap(c *gin.Context) {
 	r := c.Request
 	w := c.Writer
 	err := r.ParseForm()
@@ -166,7 +168,7 @@ func KuafuProxy(c *gin.Context) {
 			}
 		}
 		if hostRule.AutoCors {
-			handleCors(w, r)
+			AttachCorsHeaders(w, r)
 		}
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
@@ -453,7 +455,7 @@ func HandleAllRules(c *gin.Context) {
 	c.JSON(200, kuafuConfig.Hosts)
 }
 
-func updateHashHandle(c *gin.Context) {
+func HandleUpdateHashHandle(c *gin.Context) {
 	r := c.Request
 	err := r.ParseForm()
 	if err != nil {
@@ -481,8 +483,8 @@ func updateHashHandle(c *gin.Context) {
 	c.JSON(200, HttpResult{Status: 200, Data: ""})
 }
 
-// GetBackendsHandle 取到后端机器列表;
-func GetBackendsHandle(c *gin.Context) {
+// HandleBackends4SingleHost 取到后端机器列表;
+func HandleBackends4SingleHost(c *gin.Context) {
 	queryHost := c.Param("host")
 	backends := GetAllBackends(queryHost)
 	if backends == nil {
