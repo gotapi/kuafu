@@ -37,9 +37,9 @@ Maybe you can mention me or this repo in the acknowledgements too
 <h4>
     <a href="https://github.com/gotapi/kuafu">Kuafu</a>
   <span> · </span>
-    <a href="https://github.com/gotapi/kuafu/docs/en">Documentation(English)</a>
+    <a href="../README.md">Documentation(English)</a>
     <span> · </span>
-    <a href="https://github.com/gotapi/kuafu/docs/zh">中文文档</a>
+    <a href="zh.md">中文文档</a>
   <span> · </span>
     <a href="https://github.com/gotapi/kuafu/issues/">Request Feature</a>
   </h4>
