@@ -1,11 +1,91 @@
-# Kuafu 一个刚好够用的提供安全增强和灵活上游寻址的网关
+<div align="center">
 
-Kuafu(夸父)，是一个http服务转发服务，目前我们是将其挂在nginx后面，使用kuafu来实现灵活地转发到后端并实现用户认证校验的需求。
-Kuafu主要干两件事情，一是后端寻址、转发；二是安全认证。其后端寻址转发规则又有两套实现，一个是根据配置文件里的来转发，二是从consul里做服务发现。
+  <img src="assets/logo.png" alt="logo" width="200" height="auto" />
+  <h1>Kuafu</h1>
+  
+  <p>
+    Simple but powerful gateway
+  </p>
+  
+  
+<!-- Badges -->
+<p>
+ 
+  <a href="">
+    <img src="https://img.shields.io/github/issues/gotapi/kuafu" alt="last update" />
+  </a>
+  <a href="https://github.com/Louis3797/awesome-readme-template/network/members">
+    <img src="https://img.shields.io/github/forks/gotapi/kuafu" alt="forks" />
+  </a>
+  <a href="https://github.com/Louis3797/awesome-readme-template/stargazers">
+    <img src="https://img.shields.io/github/stars/gotapi/kuafu" alt="stars" />
+  </a>
+  <a href="https://github.com/Louis3797/awesome-readme-template/issues/">
+    <img src="https://img.shields.io/github/license/gotapi/kuafu" alt="open issues" />
+  </a>
 
-## 为什么会想到开发kuafu
-这个是源自我们公司的需求，目前经过几年的时间，已经积累了太多web小应用，但是很多是开放访问的，全都开放访问，有点心里发虚，但是挨个应用去改一遍接上一套登陆系统，也是一个浩大的工程。于是我有了一个大胆的想法：能不能把这些应用都放在一个http代理服务器后面，代理服务器提前做一下登陆验证？于是就把之前做的一个开源工具进行了改造，加上了登陆校验的功能。这就是写kuafu的初心。
-再后来，为了满足Java同学蓝绿发布的需求，想到了用consul来做服务发现，在kuafu中去取节点信息。
+</p>
+   
+<h4>
+    <a href="https://github.com/gotapi/kuafu">Kuafu</a>
+  <span> · </span>
+    <a href="https://github.com/gotapi/kuafu/docs/en">Documentation(English)</a>
+    <span> · </span>
+    <a href="https://github.com/gotapi/kuafu/docs/zh">中文文档</a>
+  <span> · </span>
+    <a href="https://github.com/gotapi/kuafu/issues/">Request Feature</a>
+  </h4>
+</div>
+
+<br />
+
+  
+
+<!-- About the Project -->
+## :star2: About Kafu
+Kuafu is an http service forwarding service, currently we are hanging it behind nginx, using kuafu to achieve flexible forwarding to the backend  server and achieve the user authentication verification needs.
+Kuafu mainly does two things, one is the back-end addressing,forwarding; the second is the security authentication. Its back-end addressing and forwarding rules have two sets of implementation, one is based on the configuration file to forward, and the second is from the consul to do service discovery.
+
+
+
+
+
+<!-- TechStack -->
+### :space_invader: Tech Stack
+kuafu is written by golang.
+
+
+<!-- Features -->
+### :dart: Features
+
+- Support for loading configuration files from git repositories
+- Support for loading configuration files from http addresses
+- Support for webhooks reloading
+- Support querying backend from consul
+- Support for integration with spring boot
+- Support specifying URL prefix for internal api
+- Support random, URL hash, IP Hash and other different ways to select the backend machine
+- Support no backend machine, but a pure static file to provide http services
+- Support different ways to do security verification by cookie, Authorization header, intranet IP verification, etc.
+- Support userID whitelist to provide security protection for specific sites
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Why did you think of developing kuafu
+This is from our company's needs, after a few years, has accumulated too many small web applications, but many are open access, all open access, a little weak in the heart, but from application to application to change once connected to a set of login system, is also a huge project. So I had a bold idea: can these applications are placed behind an http proxy server, proxy server in advance to do a little login verification? So an open source tool to do before the transformation, plus the login verification function. This is the original intention of writing kuafu.
+Then later, in order to meet the needs of Java students blue-green release, thought of using consul to do service discovery, in kuafu to take the node information.
 
 ## Kuafu的启动参数
 
@@ -14,68 +94,64 @@ kuafu 启动时，主要是指定-config参数了，-config 可以是本地文�
 kuafu会先从git仓库里拉取，再找到{file_path}文件加载。
 配置文件目前支持.toml和.json文件。
 当指定为从git拉取时，需要同时用<kbd>private-key</kbd>和<kbd>ssh-password</kbd>指定ssh密钥文件路径和相应的密码。
-~~[升级到1.2.0以后，只有一个config参数了]启动kuafu时，只需要用-config指定配置文件即可,同时也可以在命令行选项里指定配置文件里的各个项目。一般建议就用.env 作为配置文件名；但是.env文件不要加到git版本管理里去，这样开发环境、生产环境可以使用不同的配置。~~
 
-## 配置文件示例
-以下是一个kuafu.toml配置文件示例:
+
+## example of configuration file
 
 ```toml
 [kuafu]
-listenAt="0.0.0.0:5577" #监听地址;
+listenAt="0.0.0.0:5577" #listening at
 
 [dash]
-prefix="/_dash/secret1983/" #为了安全特意加了一个前缀；
-superUser="root" #对服务做动态变更时或需要查看信息时，先用这个user和pass登陆换一个token
+prefix="/_dash/secret1983/" 
+superUser="root" 
 superPass="admin1983" 
 #以下是登陆后产生token的一个secret;
 secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefofwe7r823fdfdsgoodiwefefofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
 
-#以下是一个新host
+#new host section
 [host."api.example.com"]
-	backends=["172.19.4.25:8080"] #该域名的后端服务器
-	method="cookie" #校验方法
-	#从loginUrl回调过来时，会附带一个token,这个token就是用下面这个secret加密的。
+	backends=["172.19.4.25:8080"] #backend server of domain api.example.com
+	method="cookie" # validation method
 	secret= "HelabyUooDayDooAndWhoIsYHelloBabyUooDayDooAndWhoIsYouHelloBabyUooDayDooAndWhoIsYourHelloBabyUooDayDDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-an87rvnlflidsfdsyuf2efore-was-speaking-of-bits-as-well"
-	# 对刚才的to。ken做jwt解码校验，验证这个UserId域是否存在
 	requiredField="UserId"
-	# 没好cookie中没有一个_wjToken值时，或对空名叫_wjToken的值解码失败时，会重定向到这个地址。
 	loginUrl= "https://login.example.com/api/dingding/login?_rtUrl=https://api.example.com/"
 
 [host."grafana.example.com"]
-    #这是一个grafana的服务，简单一点，用http basic 认证，知道密码就行。
     backends=["172.14.32.3:3000"]
     method="basic"	
     authName="someuser"
     authPass="somepassword" 
 ```
 
-下面解读一下这个配置ywyr;其中每一个域名里的配置都可以有Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod 这几项。TokenName的值如果没有指定，则为_wjToken;
-Method指定了安全校验的方式，有cookie,authorization,private-ip,basic,none五种方式。
+The following is an explanation of this configuration ywyr; where each domain name can have Method,Secret,RequiredField,LoginUrl,TokenName,AuthName,AuthPass,BackendHashMethod The value of TokenName is _wjToken if is not specified, it is _wjToken;
+Method specifies the way of security verification, there are five ways: cookie, authorization, private-ip, basic, and none.
 
 ### cookie
-当method为cookie时，kuafu会检查名为${TokenName}的Cookie,如果有这个Cookie，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
-任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
-rule.json里配置的requiredField一般用的是userId。
+When method is cookie, kuafu will check the cookie named ${TokenName}, if there is this cookie, then use ${Secret} to do jwt decryption, after decryption check if there is ${RequiredField} item in this jwt.
+If any step fails, it will jump to ${LoginUrl} to let the current user login.
+The requiredField configured in rule.json is generally used as userId.
+
 ### authorization
-当method为cookie时，kuafu会检查名为Authorization的Header,如果有这个Header，则用${Secret}去做jwt解密，解密后检查这个jwt里是否有${RequiredField}项。
-任何一步失败，都会跳转到${LoginUrl}去让当前用户登陆。
-rule.json里配置的requiredField一般用的是userId。
+When the method is authorization, kuafu will check the Header named Authorization, if there is this Header, then use ${Secret} to do the jwt decryption, after decryption, check if there is ${RequiredField} item in this jwt.
+If any step fails, it will jump to ${LoginUrl} to let the current user login.
+The requiredField configured in rule.json is generally used as userId.
 ### private-ip
-只接受在内网IP访问；
+Accepting only intranet IP access.
 ### basic
-以 **http-basic-authentication** 的方式做认证，用户名、密码分别是rule.json中配置的${AuthName},${AuthPass}。
+Do authentication with **http-basic-authentication**, username and password are ${AuthName},${AuthPass} configured in rule.json respectively.
 
 ### none
-none 方式，是默认方式。如果任何域名的Method没有指定，其值就会是none。none的意思就是。。。不做认证校验了。
+The none method is the default method. If the Method is not specified for any domain, the value will be none. none means. Do not do authentication checks anymore.
 
 
 
-##  nginx配置
+##  nginx configuration
 
-一般来说，我们是将kuafu挂在nginx的后面来提供服务，因为如果要做一个通用的web server的话，要处理https证书、压缩、不同的http协议、websocket等各种协议，实在是太复杂了；只有在开发环境，才会直接用kuafu来提供web服务。
+In general, we are hanging kuafu behind nginx to provide services, because if you want to do a generic web server, to deal with https certificates, compression, different http protocols, websockets and other various protocols, is too complex; only in the development environment, will use kuafu directly to provide web services.
 
 
-nginx下，我们只需要一股脑将各个子域名的服务都转发给kuafu就好了；比如，kuafu默认工作在5577端口，在nginx.conf里我们是这样配置的:
+With nginx, we just need to forward the services of each subdomain to kuafu; for example, kuafu works on port 5577 by default, and in nginx.conf we configure it like this:
 ```
 server {
     listen 80;
@@ -94,9 +170,9 @@ server {
 }
 
 ```
-这样到任何shifen.de的子域名的请求都发给kuafu来服务了。
+This way requests to any subdomain of shifen.de are sent to kuafu to be served.
 
-> kuafu可以从配置文件里设定的backends里寻找后端地址，也可以在consul的服务发现里寻找后端。其中，consul的优先级更高；如果一个域名已经在consul中有配置了，配置文件里的设定将会失效。
+> kuafu can look for backends from the backends set in the configuration file, or in consul's service discovery. Consul has higher priority; if a domain name is already configured in consul, the settings in the configuration file will not work.
 
 ### 后端轮询方法
 每个域名的后端机器可以有多台，当有多台时，寻址方案一共有这几个:
@@ -223,62 +299,17 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - [x] 支持fallback地址;
 
 
-# Change log
+<!-- License -->
+## :warning: License
 
-## 1.2.4
-- 针对特定站点只允许少数人访问的情况，加了一个userId白名单。
-
-## 1.2.3 
-- 支持对特定host配置一个root选项，配置后，即变身为一个static file server。
-- 引入了gin这个web framework,暂时还没有针对gin的特定动作。
-
-## 1.2.2
-添加了几个<kbd>prometheus </kbd>指标：
-- kuafu_total_request 总处理的请求数
-- kuafu_denied_count 因为权限被挡住的请求数
-- kuafu_failed_count 因为后端原因失败入的请求数 
-- kuafu_service_in_consul consul中存在的服务总数
-
-## 1.2.1
-
-- 在配置文件中添加了autoCors=true/false的支持。如果是true,自动附加cors相关操作。（对php等可以清理缓冲区的后端，可能会失效）
-- 在配置文件中添加了headers 支持，可以向浏览器输出额外的headers;（对php等可以清理缓冲区的后端，可能会失效）
-- 在配置文件中添加了upstreamHeaders支持，可以向上游添加额外的headers;
-
-## 1.2.0
-- 做了大量的变更，弃用了dotenv形式的配置，改用.json或toml来配置。
-- 支持从网络或git库加载配置文件。
-- 支持用webhook来通知kuafu重新加载配置文件。
+Distributed under the Apache-2.0 License. See LICENSE.txt for more information.
 
 
-## 1.1.1 
 
-支持hotreload了，更新了map json和rule json之后，可以热更新了。
 
-## 1.1.0
-- 引入了一个新的库来从配置文件中解析配置项
-- 大幅度更新了readme.md
-- 部分配置项改名了
-- rule.json 中加了一个TokenName项，这样就可以每个域名配置不同的cookie了，项目之前不会串cookie了
-- 文件结构分拆了，http请求处理相关,配置项相关的，拆出来两个文件。
-- 改名儿了，以前叫wujing,现在改名儿叫kuafu。
-- 添加了一个全局的fallback_addr选项。
+<!-- Contact -->
+## :handshake: Contact
 
-## 1.0.10
-bugfix:在随机选backend时，没有正确处理rand.Intn的种子，导致每次都是1；
+404ms - [@162cm](https://twitter.com/162cm) - mail@404.ms
 
-## 1.0.9
-对method = OPTIONS的浏览器preflight请求，无法加认证信息，因此对options请求强制加cors头。
-
-## 1.0.8
-- error_log 设置为"-"时，即不将错误重定向到文件中。
-- 将cookie-jwt改名为cookie,authorization-jwt改名为authorization
-- 如果用户以basic方式提交了，会带有一个值类似 "Basic *****"的Authorization头，这样的头在按jwt解析时会出错。已经处理;
-- Token方式提交的时候，能正确处理Authorization: Bearer ***头（之前的处理是不合规范的)
-- 去掉了jwt时对email字段的判断的支持。
-
-## 1.0.7
-- 去掉了结果输出中的Header
-- 认证方式以前要么是private-ip,要么是cookie或authorization中的一种；
-现在可以有多种，用逗号分开即可。
-- 无授权时，对非ajax请求返回Http 303 redirect ，对ajax请求，返回 {Status:403 Data:redirect-URL} 结果。
+Project Link: [https://github.com/gotapi/kuafu](https://github.com/gotapi/kuafu)
