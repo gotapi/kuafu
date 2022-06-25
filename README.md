@@ -31,7 +31,7 @@
   <span> · </span>
     <a href="https://github.com/gotapi/kuafu/docs/en">Documentation(English)</a>
     <span> · </span>
-    <a href="blob/master/docs/zh.md">中文文档</a>
+    <a href="docs/zh.md">中文文档</a>
   <span> · </span>
     <a href="https://github.com/gotapi/kuafu/issues/">Request Feature</a>
   </h4>
