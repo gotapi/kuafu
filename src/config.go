@@ -31,11 +31,13 @@ type DashConfig struct {
 	Prefix    string `toml:"prefix"`
 }
 type ServerConfig struct {
-	TestMode     bool   `toml:"test"`
-	LogFile      string `toml:"logFile"`
-	ListenAt     string `toml:"listenAt"`
-	ConsulAddr   string `toml:"consulAddr"`
-	FallbackAddr string `toml:"fallback"`
+	TestMode         bool   `toml:"test"`
+	LogFile          string `toml:"logFile"`
+	ListenAt         string `toml:"listenAt"`
+	ConsulAddr       string `toml:"consulAddr"`
+	FallbackAddr     string `toml:"fallback"`
+	RateLimitCap     int64  `toml:"rateLimitCap"`
+	RateLimitQuantum int64  `toml:"rateLimitQuantum"`
 }
 type KuafuConfig struct {
 	Kuafu ServerConfig          `toml:"kuafu"`

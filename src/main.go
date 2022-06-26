@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/hashicorp/consul/api"
+	"github.com/juju/ratelimit"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"hash/crc32"
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-const version = "1.2.3"
+const version = "1.2.6"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
@@ -56,9 +57,6 @@ type BackendHostArray []BackendHost
 type ResponseOfMethods struct {
 	Code int               `json:"code"`
 	Data map[string]string `json:"data"`
-}
-type KuafuHttpHandler struct {
-	Engine *gin.Engine
 }
 
 var (
@@ -141,6 +139,19 @@ func CheckErr(err error) {
 func HandleStatusPage(c *gin.Context) {
 	WriteOutput([]byte("status ok"), c.Writer)
 }
+
+func RateLimitMiddleware(fillInterval time.Duration, cap, quantum int64) gin.HandlerFunc {
+	bucket := ratelimit.NewBucketWithQuantum(fillInterval, cap, quantum)
+	return func(c *gin.Context) {
+		if bucket.TakeAvailable(1) < 1 {
+			c.String(http.StatusForbidden, "rate limit...")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 func StartHttpService(addr string) {
 	fmt.Println("start listen..." + addr)
 	var prefix = kuafuConfig.Dash.Prefix
@@ -169,10 +180,21 @@ func StartHttpService(addr string) {
 	apiGroup.GET("/status", HandleStatusPage)
 	apiGroup.GET("/backend/:host", HandleBackends4SingleHost)
 	apiGroup.GET("/hashMethods", HandleShowHashMethodsHandle)
-	apiGroup.GET("/update/hashMethod", HandleUpdateHashHandle)
-	apiGroup.GET("/update/backend", HandleUpdateServiceMap)
-	apiGroup.GET("/reload/"+hotLoadSecret, HandleHotReload)
 	apiGroup.Any("/metrics", HandleMetrics)
+	updateApiGroup := r.Group("/" + prefix + "/update/")
+	updateApiGroup.POST("/hashMethod/:domain/:method", HandleUpdateHashHandle)
+	updateApiGroup.POST("/backend/:domain", HandleUpdateServiceMap)
+	updateApiGroup.POST("/full/config/"+hotLoadSecret, HandleHotReload)
+	if kuafuConfig.Kuafu.RateLimitCap <= 0 {
+		kuafuConfig.Kuafu.RateLimitCap = 120
+	}
+	if kuafuConfig.Kuafu.RateLimitQuantum <= 0 {
+		kuafuConfig.Kuafu.RateLimitQuantum = 60
+	}
+	updateApiGroup.Use(RateLimitMiddleware(time.Second, kuafuConfig.Kuafu.RateLimitCap,
+		kuafuConfig.Kuafu.RateLimitQuantum))
+	updateApiGroup.GET("/", HandleHotReload)
+
 	r.Any("/", KuafuProxy)
 	err := r.Run(addr)
 	CheckErr(err)
@@ -265,9 +287,6 @@ func getIp(r *http.Request) net.IP {
 	return net.ParseIP(xRealIpStr)
 }
 
-func (h KuafuHttpHandler) writeErrorInfo(msg string, status int, w http.ResponseWriter) {
-	http.Error(w, msg, status)
-}
 func HandleLogin(c *gin.Context) {
 	r := c.Request
 	err := c.Request.ParseForm()

@@ -46,35 +46,21 @@ func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateServiceMap(c *gin.Context) {
-	r := c.Request
-	w := c.Writer
-	err := r.ParseForm()
-	if err != nil {
-		log.Printf("parse form parameters failed  ")
-		return
-	}
-	domain := ""
-	jsonData := ""
-	if r.Form["domain"] != nil {
-		domain = strings.Join(r.Form["domain"], "")
-	}
-	if r.Form["jsonData"] != nil {
-		jsonData = strings.Join(r.Form["jsonData"], "")
-	}
+	domain := c.Param("domain")
 	var backends BackendHostArray = make([]BackendHost, 32)
-	err = json.Unmarshal([]byte(jsonData), &backends)
+	err := c.BindJSON(BackendHostArray{})
 	if err != nil {
-		http.Error(w, "can't decode backends from jsonData", 500)
+		c.JSON(500, HttpResult{Status: 500, Msg: "can't decode backends from jsonData"})
 		failedRequest.Inc()
 		return
 	}
 	if len(backends) == 0 {
+		c.JSON(500, HttpResult{Status: 500, Msg: "backends can't be empty "})
 		failedRequest.Inc()
-		http.Error(w, "backends can't be empty ", 500)
 		return
 	}
 	serviceMapInFile[domain] = backends
-	c.JSON(200, HttpResult{Data: "update succeed.", Status: 200})
+	c.JSON(200, HttpResult{Data: "update succeed.", Msg: "OK", Status: 200})
 }
 
 func HandleClientIp(c *gin.Context) {
@@ -462,24 +448,16 @@ func HandleUpdateHashHandle(c *gin.Context) {
 		log.Printf("parse form parameters failed  ")
 		return
 	}
-	domain := ""
-	method := ""
-	if r.Form["domain"] != nil {
-		domain = strings.Join(r.Form["domain"], "")
-	}
-	if r.Form["method"] != nil {
-		method = strings.Join(r.Form["method"], "")
-	}
-
+	domain := c.Param("domain")
+	method := c.Param("method")
 	if method != RandHash && method != IPHash && method != UrlHash && method != LoadRound {
 		c.JSON(400, HttpResult{Status: 400, Msg: "method invalid"})
 		return
 	}
-	if domain != "" && method != "" {
-		methodLocker.Lock()
-		HashMethodMap[domain] = method
-		methodLocker.Unlock()
-	}
+	methodLocker.Lock()
+	HashMethodMap[domain] = method
+	methodLocker.Unlock()
+
 	c.JSON(200, HttpResult{Status: 200, Data: ""})
 }
 
