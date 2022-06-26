@@ -193,7 +193,6 @@ func StartHttpService(addr string) {
 	}
 	updateApiGroup.Use(RateLimitMiddleware(time.Second, kuafuConfig.Kuafu.RateLimitCap,
 		kuafuConfig.Kuafu.RateLimitQuantum))
-	updateApiGroup.GET("/", HandleHotReload)
 
 	r.Any("/", KuafuProxy)
 	err := r.Run(addr)
