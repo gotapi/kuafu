@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="assets/logo.png" alt="logo" width="400" height="auto" />
+  <img src="assets/logo.png" alt="logo" width="200" height="auto" />
   <h1>Kuafu</h1>
   
   <p>
@@ -42,7 +42,7 @@
   
 
 <!-- About the Project -->
-## :star2: About Kafu
+## :star2: About Kuafu
 Kuafu is an http service forwarding service, currently we are hanging it behind nginx, using kuafu to achieve flexible forwarding to the backend  server and achieve the user authentication verification needs.
 Kuafu mainly does two things, one is the back-end addressing,forwarding; the second is the security authentication. Its back-end addressing and forwarding rules have two sets of implementation, one is based on the configuration file to forward, and the second is from the consul to do service discovery.
 
