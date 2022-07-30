@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-const version = "1.2.6"
+const version = "1.2.7"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
