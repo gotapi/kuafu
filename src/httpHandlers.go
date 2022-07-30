@@ -273,7 +273,7 @@ func KuafuProxy(c *gin.Context) {
 
 			if !allow {
 				deniedRequest.Inc()
-				data, _ := json.Marshal(&HttpResult{Status: 403, Data: "uid not in allow user list"})
+				data, _ := json.Marshal(&HttpResult{Status: 401, Data: "uid not in allow user list"})
 				WriteOutput(data, w)
 				return
 			}
@@ -428,7 +428,7 @@ func handle403(url string, c *gin.Context) {
 	if requestWith == "XMLHttpRequest" {
 		c.JSON(200, HttpResult{Status: 403, Data: url})
 	} else {
-		c.Redirect(301, url)
+		c.Redirect(302, url)
 	}
 }
 

@@ -48,7 +48,7 @@ type HostConfig struct {
 	Method          string            `toml:"method"`
 	Secret          string            `json:"-",toml:"secret"`
 	Backends        []string          `toml:"backends"`
-	RequiredField   string            `toml:"requiredFields"`
+	RequiredField   string            `toml:"requiredField"`
 	TokenName       string            `toml:"tokenName"`
 	LoginUrl        string            `toml:"loginUrl"`
 	AuthName        string            `toml:"authName"`
