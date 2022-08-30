@@ -36,7 +36,7 @@ func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
-	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
+	w.Header().Set("Access-Control-Max-Age", "86400000")
 	origin := r.Header.Get("Origin")
 	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -154,7 +154,13 @@ func KuafuProxy(c *gin.Context) {
 			}
 		}
 		if hostRule.AutoCors {
-			AttachCorsHeaders(w, r)
+			if r.Method == "OPTIONS" {
+				AttachCorsHeaders(w, r)
+				c.Writer.WriteHeader(204)
+				c.Writer.WriteString("no content")
+				c.Abort()
+				return
+			}
 		}
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
