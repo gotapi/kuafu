@@ -20,8 +20,7 @@ import (
 )
 
 var (
-	backendTagName  = "backend"
-	dashboardSecret string
+	backendTagName = "backend"
 )
 
 type DashConfig struct {
@@ -30,23 +29,23 @@ type DashConfig struct {
 	SuperPass string `toml:"superPass"`
 	Prefix    string `toml:"prefix"`
 }
-type ServerConfig struct {
-	TestMode         bool   `toml:"test"`
-	LogFile          string `toml:"logFile"`
-	ListenAt         string `toml:"listenAt"`
-	ConsulAddr       string `toml:"consulAddr"`
-	FallbackAddr     string `toml:"fallback"`
-	RateLimitCap     int64  `toml:"rateLimitCap"`
-	RateLimitQuantum int64  `toml:"rateLimitQuantum"`
+type AppConfig struct {
+	TestMode        bool     `toml:"test"`
+	LogFile         string   `toml:"logFile"`
+	ListenAt        string   `toml:"listenAt"`
+	ConsulAddr      string   `toml:"consulAddr"`
+	FallbackAddr    string   `toml:"fallback"`
+	TrustedProxies  []string `toml:"trustProxies"`
+	TrustedPlatform string   `toml:"trustedPlatform"`
 }
 type KuafuConfig struct {
-	Kuafu ServerConfig          `toml:"kuafu"`
+	Kuafu AppConfig             `toml:"kuafu"`
 	Dash  DashConfig            `toml:"dash"`
 	Hosts map[string]HostConfig `toml:"host"`
 }
 type HostConfig struct {
 	Method          string            `toml:"method"`
-	Secret          string            `json:"-",toml:"secret"`
+	Secret          string            `json:"-" toml:"secret"`
 	Backends        []string          `toml:"backends"`
 	RequiredField   string            `toml:"requiredField"`
 	TokenName       string            `toml:"tokenName"`
@@ -59,6 +58,11 @@ type HostConfig struct {
 	AutoCors        bool              `toml:"autoCors"`
 	Root            string            `toml:"root"`
 	AllowUid        []string          `toml:"allowUid"`
+	RateLimit       Rate              `toml:"rateLimit"`
+}
+type Rate struct {
+	Cap     int64 `toml:"cap" json:"cap"`
+	Quantum int64 `toml:"quantum" json:"quantum"`
 }
 
 var kuafuConfig KuafuConfig

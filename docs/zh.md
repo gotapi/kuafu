@@ -1,14 +1,6 @@
-<!--
-Hey, thanks for using the awesome-readme-template template.  
-If you have any enhancements, then fork this project and create a pull request 
-or just open an issue with the label "enhancement".
-
-Don't forget to give this project a star for additional support ;)
-Maybe you can mention me or this repo in the acknowledgements too
--->
 <div align="center">
 
-  <img src="../assets/logo.png" alt="logo" width="400" height="auto" />
+  <img src="../assets/logo.png" alt="logo" width="600" height="auto" />
   <h1>Kuafu</h1>
   
   <p>
@@ -306,6 +298,15 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 
 
 # Change log
+## 1.3.0
+- 代码结构优化
+- 加了限流设置。在单个host的设置加类似 <kbd>rateLimit={"cap"=300,"quantum"=100} </kbd>即可限流。
+- 调整了接口地址，更清晰。
+- 添加trustedProxies和trustedPlatform ，使用gin的特性来活获取真实ip.
+
+
+## 1.2.8
+- 调整了对options类型的CORS设置。
 
 ## 1.2.4
 - 针对特定站点只允许少数人访问的情况，加了一个userId白名单。

@@ -18,24 +18,48 @@ import (
 )
 
 var (
+	/**
+	处理过的请求数
+	*/
 	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kuafu_total_request",
 		Help: "The total number of processed requests",
 	})
+	/**
+	拒绝处理的请求数
+	*/
 	deniedRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kuafu_denied_count",
 		Help: "The total number of denied requests",
 	})
+
 	failedRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kuafu_failed_count",
 		Help: "The total number of failed requests",
 	})
 )
 
+func HandleStatusPage(c *gin.Context) {
+	WriteOutput([]byte("status ok"), c.Writer)
+}
+
+func WriteOutput(data []byte, w http.ResponseWriter) {
+	_, err := w.Write(data)
+	if err != nil {
+		log.Printf("write response data failed")
+		return
+	}
+}
+
+func HandleShowHashMethodsHandle(c *gin.Context) {
+	var response ResponseOfMethods
+	c.JSON(200, response)
+}
+
 func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "authorization,rid,Authorization,Content-Type,Accept,x-requested-with,X-requested-with,Locale")
+	w.Header().Set("Access-Control-Allow-Headers", "Rid,Authorization,Content-Type,Accept,X-requested-with,Locale")
 	w.Header().Set("Access-Control-Max-Age", "86400000")
 	origin := r.Header.Get("Origin")
 	if origin != "" {
@@ -87,10 +111,10 @@ func HandleAllBackends(c *gin.Context) {
 func HandleHotReload(c *gin.Context) {
 	updated := hotUpdateMapFile()
 	if updated {
-		failedRequest.Inc()
-		c.JSON(500, HttpResult{Status: 500, Msg: "hot reload failed"})
-	} else {
 		c.JSON(200, HttpResult{Status: 200, Msg: "hot reload succeed"})
+	} else {
+		failedRequest.Inc()
+		c.JSON(200, HttpResult{Status: 500, Msg: "hot reload failed"})
 	}
 }
 
@@ -104,6 +128,7 @@ func requestBasicAuthentication(w http.ResponseWriter) {
 func hotUpdateMapFile() bool {
 	err := loadConfig()
 	if err != nil {
+		log.Printf("got error:%v", err)
 		return false
 	}
 	generateServiceMap()
@@ -123,6 +148,23 @@ func KuafuHeaders() gin.HandlerFunc {
 	}
 }
 func KuafuProxy(c *gin.Context) {
+
+	/**
+	host := Normalize(c.Request.Host)
+	bucket, ok := rateLimitBuckets[host]
+	if !ok {
+		log.Printf("%s have not ratelimit.")
+
+	}
+	if ok {
+		log.Printf("rateLimit:%s", host)
+		if bucket.TakeAvailable(1) < 1 {
+			c.String(http.StatusForbidden, "rate limit...")
+			c.Abort()
+			return
+		}
+	}
+	*/
 
 	w := c.Writer
 	r := c.Request
@@ -177,7 +219,7 @@ func KuafuProxy(c *gin.Context) {
 	}
 
 	if strings.Contains(authenticateMethod, "private-ip") {
-		ip := getIp(r)
+		ip := net.ParseIP(c.ClientIP())
 		if ip == nil {
 			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
 			return
@@ -388,7 +430,7 @@ func KuafuValidation() gin.HandlerFunc {
 		如果不是内网IP,则只支持Token;
 		*/
 
-		ip := getIp(r)
+		ip := net.ParseIP(c.ClientIP())
 		if ip != nil && isPrivateIP(ip) {
 			var authorizations, _authorizationOk = r.Header["Authorization"]
 			/**
@@ -445,6 +487,17 @@ func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *htt
 
 func HandleAllRules(c *gin.Context) {
 	c.JSON(200, kuafuConfig.Hosts)
+}
+func HandleRule(c *gin.Context) {
+	host := Normalize(c.Param("host"))
+	rule, ok := kuafuConfig.Hosts[host]
+	if ok {
+		c.JSON(200, rule)
+	} else {
+		c.JSON(404, gin.H{
+			"message": "host rule not found",
+		})
+	}
 }
 
 func HandleUpdateHashHandle(c *gin.Context) {
