@@ -6,6 +6,7 @@ import (
 	"hash/crc32"
 	"log"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -13,9 +14,35 @@ import (
 func GetAllBackends(hostname string) BackendHostArray {
 	return serviceMap[Normalize(hostname)]
 }
-func GetBackendServerByHostName(hostnameOriginal string, ip string, path string, method string) string {
+func GetBackendByUpstreamConfig(config UpstreamConfig, r *http.Request, ip string) string {
+	if len(config.Backends) == 1 {
+		return config.Backends[0]
+	}
+	if config.HashMethod == RandHash || config.HashMethod == LoadRound {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		idx := r.Intn(len(config.Backends))
+		return config.Backends[idx]
+	}
+	if config.HashMethod == IPHash || config.HashMethod == UrlHash {
+		var seed string
+		if config.HashMethod == IPHash {
+			seed = ip
+		}
+		if config.HashMethod == UrlHash {
+			seed = r.URL.Path
+		}
+		crc32q := crc32.MakeTable(0xD5828281)
+		checkSum := crc32.Checksum([]byte(seed), crc32q)
+		idx := checkSum % uint32(len(config.Backends))
+		return config.Backends[idx]
+	}
+	return ""
+}
+func GetBackendServerByHostName(hostnameOriginal string, ip string, r *http.Request, method string) string {
+
 	hostname := Normalize(hostnameOriginal)
 	data := serviceMap[Normalize(hostname)]
+
 	if data == nil || len(data) == 0 {
 		log.Println("map length of  backend-" + hostname + " is 0")
 		return ""
@@ -51,7 +78,7 @@ func GetBackendServerByHostName(hostnameOriginal string, ip string, path string,
 			seed = ip
 		}
 		if method == UrlHash {
-			seed = path
+			seed = r.URL.Path
 		}
 		crc32q := crc32.MakeTable(0xD5828281)
 		checkSum := crc32.Checksum([]byte(seed), crc32q)

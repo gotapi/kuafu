@@ -43,26 +43,38 @@ type KuafuConfig struct {
 	Dash  DashConfig            `toml:"dash"`
 	Hosts map[string]HostConfig `toml:"host"`
 }
-type HostConfig struct {
-	Method          string            `toml:"method"`
-	Secret          string            `json:"-" toml:"secret"`
+type UpstreamConfig struct {
 	Backends        []string          `toml:"backends"`
-	RequiredField   string            `toml:"requiredField"`
-	TokenName       string            `toml:"tokenName"`
-	LoginUrl        string            `toml:"loginUrl"`
-	AuthName        string            `toml:"authName"`
-	AuthPass        string            `toml:"authPass"`
-	HashMethod      string            `toml:"hashMethod"`
-	AddOnHeaders    map[string]string `toml:"headers"`
 	UpstreamHeaders map[string]string `toml:"upstreamHeaders"`
-	AutoCors        bool              `toml:"autoCors"`
-	Root            string            `toml:"root"`
-	AllowUid        []string          `toml:"allowUid"`
-	RateLimit       Rate              `toml:"rateLimit"`
+	HashMethod      string            `toml:"hashMethod"`
+
+	Root      string `toml:"root"`
+	RateLimit Rate   `toml:"rateLimit"`
+}
+type SecurityConfig struct {
+	Method        string   `toml:"method"`
+	Secret        string   `json:"-" toml:"secret"`
+	RequiredField string   `toml:"requiredField"`
+	TokenName     string   `toml:"tokenName"`
+	LoginUrl      string   `toml:"loginUrl"`
+	AuthName      string   `toml:"authName"`
+	AuthPass      string   `toml:"authPass"`
+	AllowUid      []string `toml:"allowUid"`
+}
+type PrefixConfig struct {
+	UpstreamConfig
+	Path string `toml:"path"`
+}
+type HostConfig struct {
+	AddOnHeaders map[string]string `toml:"headers"`
+	SecurityConfig
+	UpstreamConfig
+	PathConfig []PrefixConfig `toml:"pathConfig"`
+	AutoCors   bool           `toml:"autoCors"`
 }
 type Rate struct {
-	Cap     int64 `toml:"cap" json:"cap"`
-	Quantum int64 `toml:"quantum" json:"quantum"`
+	Cap     int64 `toml:"cap" `
+	Quantum int64 `toml:"quantum"`
 }
 
 var kuafuConfig KuafuConfig

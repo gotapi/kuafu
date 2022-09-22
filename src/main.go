@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "1.3.0"
+const version = "1.3.1"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
@@ -144,6 +144,11 @@ func StartHttpService(addr string) {
 	}
 
 	r := gin.Default()
+	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
+	err := r.SetTrustedProxies(kuafuConfig.Kuafu.TrustedProxies)
+	if err != nil {
+		log.Println("trustedProxies set failed")
+	}
 	r.Use(KuafuHeaders())
 	r.Use(KuafuStat())
 	r.Use(RateLimitMiddleware())
@@ -167,7 +172,7 @@ func StartHttpService(addr string) {
 	updateApiGroup.Use(UpdateApiLimitMiddleware())
 
 	r.NoRoute(KuafuProxy)
-	err := r.Run(addr)
+	err = r.Run(addr)
 	CheckErr(err)
 }
 

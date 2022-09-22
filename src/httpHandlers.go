@@ -180,14 +180,27 @@ func KuafuProxy(c *gin.Context) {
 		queryHost = hostSeg
 	}
 	hostRule, okRule := kuafuConfig.Hosts[queryHost]
+
 	authenticateMethod := "none"
 	backendHashMethod := RandHash
+	upstreamConfig := UpstreamConfig{}
 	if okRule {
+		upstreamConfig = pathBasedUpstream(hostRule, r)
 		authenticateMethod = hostRule.Method
-		backendHashMethod = hostRule.HashMethod
+		if len(hostRule.HashMethod) > 0 {
+			backendHashMethod = hostRule.HashMethod
+		}
+		if len(upstreamConfig.HashMethod) > 0 {
+			backendHashMethod = upstreamConfig.HashMethod
+		}
 		if hostRule.AddOnHeaders != nil {
 			for k, v := range hostRule.AddOnHeaders {
 				w.Header().Set(k, v)
+			}
+		}
+		if upstreamConfig.UpstreamHeaders != nil {
+			for k, v := range upstreamConfig.UpstreamHeaders {
+				r.Header.Set(k, v)
 			}
 		}
 		if hostRule.UpstreamHeaders != nil {
@@ -328,22 +341,24 @@ func KuafuProxy(c *gin.Context) {
 		}
 
 	}
-	var ip string
-
-	if len(r.Header["X-Real-Ip"]) < 1 {
-		log.Printf("without X-Real-Ip,")
-		ip = ""
-	} else {
-		ip = r.Header["X-Real-Ip"][0]
+	ip := c.ClientIP()
+	if len(upstreamConfig.Root) > 0 {
+		HandleStatic("/", http.Dir(hostRule.Root), w, r)
+		return
 	}
-
 	if len(hostRule.Root) > 0 {
 		HandleStatic("/", http.Dir(hostRule.Root), w, r)
 		return
 	}
 
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
-	backend := GetBackendServerByHostName(queryHost, ip, r.URL.Path, backendHashMethod)
+	log.Println("try path based backends")
+	backend := ""
+	if len(upstreamConfig.Backends) > 0 {
+		backend = GetBackendByUpstreamConfig(upstreamConfig, r, ip)
+	} else {
+		backend = GetBackendServerByHostName(queryHost, ip, r, backendHashMethod)
+	}
 	if backend == "" {
 		if len(kuafuConfig.Kuafu.FallbackAddr) > 0 && kuafuConfig.Kuafu.FallbackAddr != "-" {
 			backend = kuafuConfig.Kuafu.FallbackAddr
@@ -352,6 +367,10 @@ func KuafuProxy(c *gin.Context) {
 			failedRequest.Inc()
 			return
 		}
+	}
+	if "true" == strings.ToLower(r.Header.Get("DEBUG-UPSTREAM")) {
+		http.Error(w, backend, 200)
+		return
 	}
 	log.Printf("backend host:%v", backend)
 	peer, err := net.Dial("tcp", backend)

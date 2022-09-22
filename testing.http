@@ -1,0 +1,39 @@
+### inspect rule
+GET http://localhost:5577/_inner/hello2429527/inspect/rule/mac.shifen.de HTTP/1.1
+Content-Type: application/json
+
+> {%
+client.test("testing som",
+  function() {
+    client.assert(response.status === 200)
+    client.assert(response.body.AutoCors===false,"autoCors wrong")
+    client.assert(response.body.RequiredField==="","requiredField wrong")
+  });
+%}
+
+### test path based backend rule for /api/v2/*
+GET localhost:5577/api/v2/hell
+HOST: mac.shifen.de
+Debug-upstream: true
+
+> {%
+client.test("backend",function() {
+client.assert(response.body.trim()==="127.0.0.1:8081","backend wrong")
+})
+%}
+
+
+### path based backend rule for /api
+GET localhost:5577/api
+HOST: mac.shifen.de
+DEBUG-UPSTREAM: true
+
+> {%
+client.test("backend",function() {
+    client.log("body:")
+    var body = response.body.trim()
+    client.log("{"+body+"}\n")
+    client.assert((typeof response.body) == "string","response type not object")
+    client.assert(body==="127.0.0.1:8080","backend wrong")
+})
+%}

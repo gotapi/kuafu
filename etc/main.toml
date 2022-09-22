@@ -20,8 +20,11 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 
 
 [host."mac.shifen.de"]
-	root="/Users/xurenlu/Documents/Sites/macproxy/"
 	rateLimit={"cap"=100,"quantum"=60}
+	pathConfig =[
+		{path="/api/v2/*",backends=["127.0.0.1:8081"]},
+		{path="/api",backends=["127.0.0.1:8080"]},
+	]
 
 
 [host."el.shifen.de"]
