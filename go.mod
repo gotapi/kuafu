@@ -8,7 +8,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/hashicorp/consul/api v1.14.0
+	github.com/hashicorp/consul/api v1.15.2
 	github.com/juju/ratelimit v1.0.2
 	github.com/prometheus/client_golang v1.13.0
 )
