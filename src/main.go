@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "1.3.1"
+const version = "1.3.2"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
@@ -144,6 +144,7 @@ func StartHttpService(addr string) {
 	}
 
 	r := gin.Default()
+	r.GET("/status", HandleStatusPage)
 	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
 	err := r.SetTrustedProxies(kuafuConfig.Kuafu.TrustedProxies)
 	if err != nil {
@@ -161,7 +162,7 @@ func StartHttpService(addr string) {
 	inspectGroup.GET("/rules", HandleAllRules)
 	inspectGroup.GET("/rule/:host", HandleRule)
 	inspectGroup.GET("/backends", HandleAllBackends)
-	inspectGroup.GET("/status", HandleStatusPage)
+
 	inspectGroup.GET("/backend/:host", HandleBackends4SingleHost)
 	inspectGroup.GET("/hashMethods", HandleShowHashMethodsHandle)
 	inspectGroup.GET("/metrics", HandleMetrics)

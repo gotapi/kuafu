@@ -10,6 +10,8 @@ superUser="admin"
 superPass="admin"
 secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsioffdsfsddogfswofwe7r823fdfdsfdsfdsfiiwgo7weoyfgodiwefefdsfdsiofofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwwe7r823fdfdsgsfe542twgoyfgodiwefefdsfdsioofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
 
+[host."dist.shifen.de"]
+	root="/Users/xurenlu/Sites/write.git/frontend/dist/"
 
 [host."boot.shifen.de"]
 	root="/Users/xurenlu/Sites/bootshiro/src/main/resources/static"
