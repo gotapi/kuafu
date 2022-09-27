@@ -144,7 +144,7 @@ func StartHttpService(addr string) {
 	}
 
 	r := gin.Default()
-	r.GET("/status", HandleStatusPage)
+
 	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
 	err := r.SetTrustedProxies(kuafuConfig.Kuafu.TrustedProxies)
 	if err != nil {
@@ -155,6 +155,7 @@ func StartHttpService(addr string) {
 	r.Use(RateLimitMiddleware())
 	innerGroup := r.Group("/" + prefix)
 	openGroup := innerGroup.Group("/open")
+	openGroup.GET("/status", HandleStatusPage)
 	openGroup.POST("/hotReload", HandleHotReload)
 	openGroup.GET("/login", HandleLogin)
 	inspectGroup := innerGroup.Group("/inspect")
