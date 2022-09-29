@@ -23,7 +23,7 @@ jobs:
 
     - name: Test
       run: go test -v ./src/
-    
+
     - name: Server
-      run: ./kuafu -config ./etc/main.toml
-    
+      run: ./kuafu test --config ./etc/main.toml
+
