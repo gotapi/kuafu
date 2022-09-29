@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "1.3.2"
+const version = "1.3.3"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
@@ -87,7 +87,7 @@ func GenerateDashboardJwtToken(secret string) (string, error) {
 func ParseToken(tokenString string, secret string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(secret), nil
 	})
@@ -129,7 +129,7 @@ func RateLimitMiddleware() gin.HandlerFunc {
 }
 
 func StartHttpService(addr string) {
-	var prefix = kuafuConfig.Dash.Prefix
+	var prefix = kuafuConfig.Kuafu.Prefix
 	if strings.HasPrefix(prefix, "/") {
 		prefix = prefix[1:]
 	}
@@ -163,7 +163,6 @@ func StartHttpService(addr string) {
 	inspectGroup.GET("/rules", HandleAllRules)
 	inspectGroup.GET("/rule/:host", HandleRule)
 	inspectGroup.GET("/backends", HandleAllBackends)
-
 	inspectGroup.GET("/backend/:host", HandleBackends4SingleHost)
 	inspectGroup.GET("/hashMethods", HandleShowHashMethodsHandle)
 	inspectGroup.GET("/metrics", HandleMetrics)
@@ -172,13 +171,19 @@ func StartHttpService(addr string) {
 	updateApiGroup.POST("/hashMethod/:domain/:method", HandleUpdateHashHandle)
 	updateApiGroup.POST("/backend/:domain", HandleUpdateServiceMap)
 	updateApiGroup.Use(UpdateApiLimitMiddleware())
-
 	r.NoRoute(KuafuProxy)
 	err = r.Run(addr)
 	CheckErr(err)
 }
 
 func main() {
+	Init()
+	err := rootCmd.Execute()
+	if err != nil {
+		return
+	}
+}
+func startServer() {
 	var err error
 
 	InitIpArray()

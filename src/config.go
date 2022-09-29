@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/go-git/go-billy/v5/memfs"
@@ -30,7 +29,6 @@ type DashConfig struct {
 	Prefix    string `toml:"prefix"`
 }
 type AppConfig struct {
-	TestMode        bool     `toml:"test"`
 	LogFile         string   `toml:"logFile"`
 	ListenAt        string   `toml:"listenAt"`
 	ConsulAddr      string   `toml:"consulAddr"`
@@ -38,18 +36,25 @@ type AppConfig struct {
 	TrustedProxies  []string `toml:"trustProxies"`
 	TrustedPlatform string   `toml:"trustedPlatform"`
 }
+type GlobalConfig struct {
+	AppConfig
+	DashConfig
+}
 type KuafuConfig struct {
-	Kuafu AppConfig             `toml:"kuafu"`
-	Dash  DashConfig            `toml:"dash"`
+	Kuafu GlobalConfig          `toml:"kuafu"`
 	Hosts map[string]HostConfig `toml:"host"`
+}
+type StaticFsConfig struct {
+	Root          string   `toml:"root"`
+	TryFiles      []string `toml:"tryFiles"`
+	Options       string   `toml:"options"`
+	enableIndexes bool
 }
 type UpstreamConfig struct {
 	Backends        []string          `toml:"backends"`
 	UpstreamHeaders map[string]string `toml:"upstreamHeaders"`
 	HashMethod      string            `toml:"hashMethod"`
-
-	Root      string `toml:"root"`
-	RateLimit Rate   `toml:"rateLimit"`
+	StaticFsConfig
 }
 type SecurityConfig struct {
 	Method        string   `toml:"method"`
@@ -69,6 +74,7 @@ type HostConfig struct {
 	AddOnHeaders map[string]string `toml:"headers"`
 	SecurityConfig
 	UpstreamConfig
+	RateLimit  Rate           `toml:"rateLimit"`
 	PathConfig []PrefixConfig `toml:"pathConfig"`
 	AutoCors   bool           `toml:"autoCors"`
 }
@@ -134,7 +140,7 @@ func loadHttpConfig(url string) error {
 	return nil
 }
 
-// Info should be used to describe the example commands that are about to run.
+// Info should be used to describe the example commands that are about to startServer.
 func Info(format string, args ...interface{}) {
 	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
 }
@@ -162,7 +168,7 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	Info("git clone %s ", repo)
 	publicKeys, err := ssh.NewPublicKeysFromFile("git", privateKeyFile, password)
 	if err != nil {
-		Warning("generate publickeys failed: %s\n", err.Error())
+		Warning("generate public keys failed: %s\n", err.Error())
 		return err
 	}
 
@@ -187,13 +193,12 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	if err != nil {
 		return err
 	}
-	var configFileFound bool = false
+	var configFileFound = false
 	err = nil
 	var content string
 	tree.ForEach(func(tree *object.Tree) error {
 		fileIter := tree.Files()
 		fileIter.ForEach(func(file *object.File) error {
-			fmt.Printf("\tfile:%s\t", file.Name)
 			if tomlPath == file.Name {
 				configFileFound = true
 				content, err = file.Contents()
@@ -218,20 +223,16 @@ func loadFromDisk(path string) error {
 	return loadLocalConfig(content, path)
 }
 func initFlags() {
-	flag.StringVar(&configFile, "config", "./etc/kuafu.toml", "configuration file of kuafu")
-	flag.StringVar(&privateKeyFile, "private-key", "~/.ssh/id_rsa", "ssh private key file path")
-	flag.StringVar(&sshPassword, "ssh-password", "", "ssh private key password")
-	flag.Parse()
 	if strings.HasPrefix(privateKeyFile, "~") {
-		normalizedPrivateKeyFile := privateKeyFile[1:len(privateKeyFile)]
+		normalizedPrivateKeyFile := privateKeyFile[1:]
 		home, er := Home()
 		if er != nil {
 			panic("can't normalize path:" + privateKeyFile)
 		}
 		privateKeyFile = home + normalizedPrivateKeyFile
 	}
-	log.Printf("the consul address:%v,test mode:%v,listen at:%s,log_file:%s",
-		kuafuConfig.Kuafu.ConsulAddr, kuafuConfig.Kuafu.TestMode, kuafuConfig.Kuafu.ListenAt, kuafuConfig.Kuafu.LogFile)
+	log.Printf("the consul address:%v,listen at:%s,log_file:%s",
+		kuafuConfig.Kuafu.ConsulAddr, kuafuConfig.Kuafu.ListenAt, kuafuConfig.Kuafu.LogFile)
 
 }
 
@@ -243,4 +244,46 @@ func loadConfig() error {
 		return logGitConfig(configFile, privateKeyFile, sshPassword)
 	}
 	return loadFromDisk(configFile)
+}
+
+func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfig {
+	var target UpstreamConfig = UpstreamConfig{
+		Backends:        hostConfig.Backends,
+		UpstreamHeaders: hostConfig.UpstreamHeaders,
+		HashMethod:      hostConfig.HashMethod,
+		StaticFsConfig:  hostConfig.StaticFsConfig,
+	}
+	lowerCaseHostOptions := strings.ToLower(hostConfig.Options)
+	lowerCasePathOptions := strings.ToLower(pathConfig.Options)
+	hostConfig.enableIndexes = false
+	if strings.Contains(lowerCaseHostOptions, "+indexes") {
+		hostConfig.enableIndexes = true
+	}
+	//默认继承host的配置;
+	pathConfig.enableIndexes = hostConfig.enableIndexes
+
+	if strings.Contains(lowerCasePathOptions, "-indexes") {
+		pathConfig.enableIndexes = false
+	}
+
+	if strings.Contains(lowerCasePathOptions, "+indexes") {
+		pathConfig.enableIndexes = true
+	}
+	target.enableIndexes = pathConfig.enableIndexes
+	if pathConfig.TryFiles != nil {
+		target.TryFiles = pathConfig.TryFiles
+	}
+	if pathConfig.Backends != nil {
+		target.Backends = pathConfig.Backends
+	}
+	if pathConfig.UpstreamHeaders != nil {
+		target.UpstreamHeaders = pathConfig.UpstreamHeaders
+	}
+	if pathConfig.Root != "" {
+		target.Root = pathConfig.Root
+	}
+
+	return target
+	//pathConfig.
+
 }

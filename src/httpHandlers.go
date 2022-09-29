@@ -9,11 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -32,7 +33,9 @@ var (
 		Name: "kuafu_denied_count",
 		Help: "The total number of denied requests",
 	})
-
+	/**
+	处理失败的请求数
+	*/
 	failedRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kuafu_failed_count",
 		Help: "The total number of failed requests",
@@ -51,11 +54,6 @@ func WriteOutput(data []byte, w http.ResponseWriter) {
 	}
 }
 
-func HandleShowHashMethodsHandle(c *gin.Context) {
-	var response ResponseOfMethods
-	c.JSON(200, response)
-}
-
 func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Methods", "OPTION,OPTIONS,GET,POST,PATCH,DELETE")
@@ -69,45 +67,6 @@ func AttachCorsHeaders(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleUpdateServiceMap(c *gin.Context) {
-	domain := c.Param("domain")
-	var backends BackendHostArray = make([]BackendHost, 32)
-	err := c.BindJSON(BackendHostArray{})
-	if err != nil {
-		c.JSON(500, HttpResult{Status: 500, Msg: "can't decode backends from jsonData"})
-		failedRequest.Inc()
-		return
-	}
-	if len(backends) == 0 {
-		c.JSON(500, HttpResult{Status: 500, Msg: "backends can't be empty "})
-		failedRequest.Inc()
-		return
-	}
-	serviceMapInFile[domain] = backends
-	c.JSON(200, HttpResult{Data: "update succeed.", Msg: "OK", Status: 200})
-}
-
-func HandleClientIp(c *gin.Context) {
-	obj := c.Request.Header.Values("x-real-ip")
-	xRealIpStr := ""
-	if len(obj) > 0 {
-		idx := strings.LastIndex(obj[0], ":")
-		if idx > 2 {
-			xRealIpStr = obj[0][:idx]
-		} else {
-			xRealIpStr = obj[0]
-		}
-	} else {
-		idx := strings.LastIndex(c.Request.RemoteAddr, ":")
-		xRealIpStr = c.Request.RemoteAddr[:idx]
-	}
-	c.JSON(200, HttpResult{
-		Data:   xRealIpStr,
-		Status: 200})
-}
-func HandleAllBackends(c *gin.Context) {
-	c.JSON(200, serviceMap)
-}
 func HandleHotReload(c *gin.Context) {
 	updated := hotUpdateMapFile()
 	if updated {
@@ -118,9 +77,6 @@ func HandleHotReload(c *gin.Context) {
 	}
 }
 
-func HandleMetrics(c *gin.Context) {
-	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
-}
 func requestBasicAuthentication(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -148,27 +104,8 @@ func KuafuHeaders() gin.HandlerFunc {
 	}
 }
 func KuafuProxy(c *gin.Context) {
-
-	/**
-	host := Normalize(c.Request.Host)
-	bucket, ok := rateLimitBuckets[host]
-	if !ok {
-		log.Printf("%s have not ratelimit.")
-
-	}
-	if ok {
-		log.Printf("rateLimit:%s", host)
-		if bucket.TakeAvailable(1) < 1 {
-			c.String(http.StatusForbidden, "rate limit...")
-			c.Abort()
-			return
-		}
-	}
-	*/
-
 	w := c.Writer
 	r := c.Request
-
 	hostSeg := r.Host
 	idx := strings.Index(hostSeg, ":")
 	if idx < 0 {
@@ -180,7 +117,6 @@ func KuafuProxy(c *gin.Context) {
 		queryHost = hostSeg
 	}
 	hostRule, okRule := kuafuConfig.Hosts[queryHost]
-
 	authenticateMethod := "none"
 	backendHashMethod := RandHash
 	upstreamConfig := UpstreamConfig{}
@@ -230,7 +166,6 @@ func KuafuProxy(c *gin.Context) {
 			return
 		}
 	}
-
 	if strings.Contains(authenticateMethod, "private-ip") {
 		ip := net.ParseIP(c.ClientIP())
 		if ip == nil {
@@ -342,12 +277,18 @@ func KuafuProxy(c *gin.Context) {
 
 	}
 	ip := c.ClientIP()
+	//根据 url.path 查到的静态文件服务
 	if len(upstreamConfig.Root) > 0 {
-		HandleStatic("/", http.Dir(hostRule.Root), w, r)
+		if upstreamConfig.StaticFsConfig.TryFiles == nil && hostRule.StaticFsConfig.TryFiles != nil {
+			upstreamConfig.StaticFsConfig.TryFiles = hostRule.StaticFsConfig.TryFiles
+		}
+
+		HandleStatic("/", http.Dir(upstreamConfig.Root), w, r, upstreamConfig.StaticFsConfig)
 		return
 	}
+	// host配置级别的静态文件服务;
 	if len(hostRule.Root) > 0 {
-		HandleStatic("/", http.Dir(hostRule.Root), w, r)
+		HandleStatic("/", http.Dir(hostRule.Root), w, r, hostRule.UpstreamConfig.StaticFsConfig)
 		return
 	}
 
@@ -394,6 +335,10 @@ func KuafuProxy(c *gin.Context) {
 		failedRequest.Inc()
 		return
 	}
+	hijack(err, hj, w, peer)
+}
+
+func hijack(err error, hj http.Hijacker, w gin.ResponseWriter, peer net.Conn) {
 	conn, _, err := hj.Hijack()
 	if err != nil {
 		http.Error(w, "hijacker request failed", 500)
@@ -405,7 +350,6 @@ func KuafuProxy(c *gin.Context) {
 		peer.RemoteAddr(), peer.LocalAddr(),
 		conn.RemoteAddr(), conn.LocalAddr(),
 	)
-
 	go func() {
 		defer func(peer net.Conn) {
 			err := peer.Close()
@@ -455,7 +399,7 @@ func KuafuValidation() gin.HandlerFunc {
 			/**
 			如果Authorization 不存在,检查basic authorization 也失败了；
 			*/
-			if !_authorizationOk && !CheckBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
+			if !_authorizationOk && !CheckBasicAuth(w, r, kuafuConfig.Kuafu.SuperUser, kuafuConfig.Kuafu.SuperPass) {
 				requestBasicAuthentication(w)
 				deniedRequest.Inc()
 				c.AbortWithError(403, errors.New("need Basic Auth"))
@@ -466,7 +410,7 @@ func KuafuValidation() gin.HandlerFunc {
 			if _authorizationOk {
 				theAuthorization := authorizations[0]
 				if strings.HasPrefix(theAuthorization, "Basic ") {
-					if !CheckBasicAuth(w, r, kuafuConfig.Dash.SuperUser, kuafuConfig.Dash.SuperPass) {
+					if !CheckBasicAuth(w, r, kuafuConfig.Kuafu.SuperUser, kuafuConfig.Kuafu.SuperPass) {
 						deniedRequest.Inc()
 						c.AbortWithError(403, errors.New("basic auth failed"))
 						return
@@ -499,55 +443,61 @@ func handle403(url string, c *gin.Context) {
 	}
 }
 
-func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request) {
-	fileServer := http.StripPrefix(root, http.FileServer(fs))
-	fileServer.ServeHTTP(w, r)
-}
-
-func HandleAllRules(c *gin.Context) {
-	c.JSON(200, kuafuConfig.Hosts)
-}
-func HandleRule(c *gin.Context) {
-	host := Normalize(c.Param("host"))
-	rule, ok := kuafuConfig.Hosts[host]
-	if ok {
-		c.JSON(200, rule)
-	} else {
-		c.JSON(404, gin.H{
-			"message": "host rule not found",
-		})
+func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request, staticConfig StaticFsConfig) {
+	upath := r.URL.Path
+	if !strings.HasPrefix(upath, "/") {
+		upath = "/" + upath
+		r.URL.Path = upath
 	}
-}
 
-func HandleUpdateHashHandle(c *gin.Context) {
-	r := c.Request
-	err := r.ParseForm()
+	target := path.Clean(upath)
+
+	f, err := fs.Open(target)
 	if err != nil {
-		log.Printf("parse form parameters failed  ")
+		msg, code := toHTTPError(err)
+		Error(w, msg, code)
 		return
 	}
-	domain := c.Param("domain")
-	method := c.Param("method")
-	if method != RandHash && method != IPHash && method != UrlHash && method != LoadRound {
-		c.JSON(400, HttpResult{Status: 400, Msg: "method invalid"})
-		return
-	}
-	methodLocker.Lock()
-	HashMethodMap[domain] = method
-	methodLocker.Unlock()
+	defer func(f http.File) {
+		err := f.Close()
+		if err != nil {
 
-	c.JSON(200, HttpResult{Status: 200, Data: ""})
+		}
+	}(f)
+
+	d, err := f.Stat()
+	if err != nil {
+		msg, code := toHTTPError(err)
+		Error(w, msg, code)
+		return
+	}
+
+	if d.IsDir() && !staticConfig.enableIndexes {
+		if staticConfig.TryFiles != nil {
+
+		}
+		Error(w, "directory index disabled", 403)
+		return
+	}
+	//if staticConfig.enableIndexes
+	http.FileServer(fs).ServeHTTP(w, r)
 }
 
-// HandleBackends4SingleHost 取到后端机器列表;
-func HandleBackends4SingleHost(c *gin.Context) {
-	queryHost := c.Param("host")
-	backends := GetAllBackends(queryHost)
-	if backends == nil {
-		c.JSON(404, HttpResult{Status: 404, Msg: "not found "})
-	} else {
-		c.JSON(200, backends)
+func Error(w http.ResponseWriter, error string, code int) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(code)
+}
+
+func toHTTPError(err error) (msg string, httpStatus int) {
+	if errors.Is(err, fs.ErrNotExist) {
+		return "404 page not found", http.StatusNotFound
 	}
+	if errors.Is(err, fs.ErrPermission) {
+		return "403 Forbidden", http.StatusForbidden
+	}
+	// Default:
+	return "500 Internal Server Error", http.StatusInternalServerError
 }
 
 //CheckBasicAuth 检查是否通过了http basic 认证，通过了返回true,不通过返回false

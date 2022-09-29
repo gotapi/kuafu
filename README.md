@@ -1,10 +1,10 @@
 <div align="center">
 
-  <img src="assets/logo.png" alt="logo" width="500" height="auto" />
+  <img src="assets/logo.png" alt="logo" width="600" height="auto" />
   <h1>Kuafu</h1>
   
   <p>
-    Simple but powerful gateway
+    Simple but powerful http gateway
   </p>
   
   
@@ -43,10 +43,11 @@
 
 <!-- About the Project -->
 ## :star2: About Kuafu
-Kuafu is an http service forwarding service, currently we are hanging it behind nginx, using kuafu to achieve flexible forwarding to the backend  server and achieve the user authentication verification needs.
-Kuafu mainly does two things, one is the back-end addressing,forwarding; the second is the security authentication. Its back-end addressing and forwarding rules have two sets of implementation, one is based on the configuration file to forward, and the second is from the consul to do service discovery.
-
-
+Kuafu is a http service forwarding service。
+#### Kuafu do these :
+- upstream lookup and forwarding
+- various  security authentication
+- static file server
 
 
 
@@ -58,42 +59,37 @@ kuafu is written by golang.
 <!-- Features -->
 ### :dart: Features
 
-- Support for loading configuration files from git repositories
-- Support for loading configuration files from http addresses
-- Support for webhooks reloading
-- Support querying backend from consul
-- Support for integration with spring boot
-- Support specifying URL prefix for internal api
-- Support random, URL hash, IP Hash and other different ways to select the backend machine
-- Support no backend machine, but a pure static file to provide http services
-- Support different ways to do security verification by cookie, Authorization header, intranet IP verification, etc.
-- Support userID whitelist to provide security protection for specific sites
+- load configuration files from http addresses/git repositories/ local disk
+- webhook-style configuration hot-reload
+- upstream routing from consul agent and integration with spring boot
+- internal api to inspect configuration
+- random, URL hash, IP Hash and other different ways to select the backend machine
+- handle static files
+- security verification by cookie, Authorization header, intranet IP verification, etc.
+- userID whitelist to provide security protection for specific sites
 
 
 
+## command line arguments
 
+<kbd>-config</kbd> could be toml/json file in local disk,http uri,or git repository.
+```
+kuafu -config /etc/kuafu.toml
+```
 
+or load from http:
 
+```bash
+kuafu -config http://local-config/kuafu.toml
 
+```
+ and you could also load config from git:
 
+```bash
+kuafu -config git@github.com/some-user/some-repo.git#some-directory/main.toml
+```
 
-
-
-
-
-
-
-## Why did you think of developing kuafu
-This is from our company's needs, after a few years, has accumulated too many small web applications, but many are open access, all open access, a little weak in the heart, but from application to application to change once connected to a set of login system, is also a huge project. So I had a bold idea: can these applications are placed behind an http proxy server, proxy server in advance to do a little login verification? So an open source tool to do before the transformation, plus the login verification function. This is the original intention of writing kuafu.
-Then later, in order to meet the needs of Java students blue-green release, thought of using consul to do service discovery, in kuafu to take the node information.
-
-## Kuafu的启动参数
-
-kuafu 启动时，主要是指定-config参数了，-config 可以是本地文件位置，也可以是http网络文件，也可以是git仓库地址。
--config是git仓库地址时，格式类似 git@github.com:{user}/{repo.git}#{file_path}
-kuafu会先从git仓库里拉取，再找到{file_path}文件加载。
-配置文件目前支持.toml和.json文件。
-当指定为从git拉取时，需要同时用<kbd>private-key</kbd>和<kbd>ssh-password</kbd>指定ssh密钥文件路径和相应的密码。
+you could specific <kbd>private-key</kbd> and <kbd>ssh-password</kbd> to fig out login information for git login.
 
 
 ## example of configuration file
@@ -107,7 +103,7 @@ prefix="/_dash/secret1983/"
 superUser="root" 
 superPass="admin1983" 
 #以下是登陆后产生token的一个secret;
-secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fs'fgodiwefefdsfdsiofwe;fdogfs;fwofwe7r823fdfdsgoyfgodiwefefofwe7r823fdfdsgoodiwefefofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fofwe7r8efofwe7r82e7gdsyiufdsfdsfdsf"
 
 #new host section
 [host."api.example.com"]
@@ -174,12 +170,12 @@ This way requests to any subdomain of shifen.de are sent to kuafu to be served.
 
 > kuafu can look for backends from the backends set in the configuration file, or in consul's service discovery. Consul has higher priority; if a domain name is already configured in consul, the settings in the configuration file will not work.
 
-### 后端轮询方法
-每个域名的后端机器可以有多台，当有多台时，寻址方案一共有这几个:
-- LoadHash 按负载寻址，找负载最低的后端来服务。（暂未支持，因为现在的版本去掉了收集各个后端负载情况的功能）
-- IPHash 按IP Hash,相同IP的请求，会Hash到同一个后端;
-- UrlHash 按UrlHash,相同Url的请求，会hash到同一个后端；
-- RandHash 默认的寻址方式 ，随机拎一个后端出来服务。
+###  Upstream looking up Hash method 
+
+- LoadHash (todo)
+- IPHash hash by client ip
+- UrlHash hash by URL
+- RandHash random hash
 
 
 
@@ -205,9 +201,9 @@ B. 在Application启动类上加上 EnableDiscoveryClient 这个注解。
 @EnableSwagger2
 @EnableScheduling
 @EnableDiscoveryClient
-public class EssyncApplication {
+public class EsApplication {
     public static void main(String[] args) {
-        SpringApplication.run(EssyncApplication.class, args);
+        SpringApplication.run(EsApplication.class, args);
     }
 
 }
@@ -265,44 +261,15 @@ qwlogin带两个参数，一个是_rtUrl,一个是_rtMethod;rtMethod有Cookie和
 - **/${dash.prefix}/hashMethods** 暴露所有的hash方法；
 在访问这些地址时，需要http basic authentication 认证，用户名、密码配置文件里配置，名字分别为dash.superUser,dash.superPass。
 
+  
 
 
-
-
-
-# todo；
-
-- [ ] 域名匹配尝试采用正则匹配。
-- [ ] 规整报错，分级写入不同的日志文件。
-- [ ] fastcgi支持
-- [ ] 支持proxy_pass到一个https地址。
-- [ ] 自身支持https
-- [ ] 在authorization模式下，token改成从服务端交换到而不是直接给出。
-- [ ] login地址试验IP/cookie次数防攻击模式。 
-- [ ] 拦截指定IP/UA的请求;
-- [ ] 支持IP白名单认证;
-- [ ] 提供一个ruby脚本，检测配置是否冲突或有问题;
-- [ ] 集成 https://github.com/yuin/gopher-lua
-- [ ] 处理双斜杠问题
-- [x] 支持webhook,这样git配置变更时，可以自动重新加载配置。
-- [x] 支持userId白名单 
-- [x] 针对特定域名，直接服务某个静态目录（自身支持作为一个 简单的http server 服务static ）files。
-- [x] 尝试在特定host暴露pprof;
-- [x]  引入gin来做路由。
-- [x] 在XMLHTTPRequest方式下，不做重定向，而是返回403；
-- [x] 将cookie-jwt和authorization-jwt改名;
-- [x] cookie名字可配置;
-- [x] 支持热更新（只支持和上游服务器映射相关的配置。监听端口这些不支持）
-- [x] 集成普罗米修斯
-- [x] 支持向上游请求时，动态添加Header 
-- [x] 支持向下游请求时，动态添加Header；
-- [x] 支持fallback地址;
 
 
 <!-- License -->
 ## :warning: License
 
-Distributed under the Apache-2.0 License. See LICENSE.txt for more information.
+Distributed under the MIT License. See LICENSE.txt for more information.
 
 
 
