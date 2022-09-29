@@ -74,19 +74,19 @@ kuafu is written by golang.
 
 <kbd>-config</kbd> could be toml/json file in local disk,http uri,or git repository.
 ```
-kuafu -config /etc/kuafu.toml
+kuafu run --config /etc/kuafu.toml
 ```
 
 or load from http:
 
 ```bash
-kuafu -config http://local-config/kuafu.toml
+kuafu run --config http://local-config/kuafu.toml
 
 ```
  and you could also load config from git:
 
 ```bash
-kuafu -config git@github.com/some-user/some-repo.git#some-directory/main.toml
+kuafu run --config git@github.com/some-user/some-repo.git#some-directory/main.toml
 ```
 
 you could specific <kbd>private-key</kbd> and <kbd>ssh-password</kbd> to fig out login information for git login.
@@ -97,13 +97,11 @@ you could specific <kbd>private-key</kbd> and <kbd>ssh-password</kbd> to fig out
 ```toml
 [kuafu]
 listenAt="0.0.0.0:5577" #listening at
-
-[dash]
 prefix="/_dash/secret1983/" 
 superUser="root" 
 superPass="admin1983" 
 #以下是登陆后产生token的一个secret;
-secret="893287rvnlflidsfdsyuf2nvxfuoyfiiwgo78fofwe7r8efofwe7r82e7gdsyiufdsfdsfdsf"
+secret="8932dsyuf2nvxfuoyfiiwgo78fofwe7r8efofwe7r82e7gdsyiufdsfdsfdsf"
 
 #new host section
 [host."api.example.com"]
