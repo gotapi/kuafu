@@ -105,24 +105,27 @@ func DiscoverServices(addr string, healthyOnly bool) {
 	consulConf := api.DefaultConfig()
 	consulConf.Address = addr
 	client, err := api.NewClient(consulConf)
-	CheckErr(err)
-
+	if err != nil {
+		return
+	}
 	services, _, err := client.Catalog().Services(&api.QueryOptions{})
-	CheckErr(err)
-
+	if err != nil {
+		return
+	}
 	tempMap := make(map[string]BackendHostArray)
 
 	for name := range services {
 		servicesData, _, err := client.Health().Service(name, backendTagName, healthyOnly,
 			&api.QueryOptions{})
-		CheckErr(err)
+		if err != nil {
+			return
+		}
 
 		for _, entry := range servicesData {
 			for _, health := range entry.Checks {
 				if len(health.ServiceID) == 0 {
 					continue
 				}
-				log.Println("  health node id:", health.Node, " service_name:", health.ServiceName, " service_id:", health.ServiceID, " status:", health.Status, " ip:", entry.Service.Address, " port:", entry.Service.Port)
 				var node BackendHost
 				node.IP = entry.Service.Address
 				node.Port = entry.Service.Port
@@ -135,7 +138,6 @@ func DiscoverServices(addr string, healthyOnly bool) {
 					serverList = append(sers, node)
 				}
 				tempMap[health.ServiceName] = serverList
-				fmt.Println("service node updated ip:", node.IP, " port:", node.Port, " ts:", node.Timestamp)
 			}
 		}
 	}

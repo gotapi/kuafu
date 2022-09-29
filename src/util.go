@@ -4,27 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"runtime"
 	"strings"
 )
-
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-// RandStringBytes
-// 生成一个长度为n的随机字符串;
-func RandStringBytes(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-	return string(b)
-}
 
 func InitIpArray() {
 	for _, cidr := range []string{
@@ -95,22 +81,4 @@ func HomeWindows() (string, error) {
 	}
 
 	return home, nil
-}
-
-func lastChar(str string) uint8 {
-	if str == "" {
-		panic("The length of the string can't be 0")
-	}
-	return str[len(str)-1]
-}
-func joinPaths(absolutePath, relativePath string) string {
-	if relativePath == "" {
-		return absolutePath
-	}
-
-	finalPath := path.Join(absolutePath, relativePath)
-	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
-		return finalPath + "/"
-	}
-	return finalPath
 }

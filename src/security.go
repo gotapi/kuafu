@@ -25,8 +25,8 @@ func HandleLogin(c *gin.Context) {
 		password = strings.Join(c.Request.Form["password"], "")
 	}
 
-	if username == kuafuConfig.Dash.SuperUser && password == kuafuConfig.Dash.SuperPass {
-		token, err := GenerateDashboardJwtToken(kuafuConfig.Dash.Secret)
+	if username == kuafuConfig.Kuafu.SuperUser && password == kuafuConfig.Kuafu.SuperPass {
+		token, err := GenerateDashboardJwtToken(kuafuConfig.Kuafu.Secret)
 		if err != nil {
 			c.JSON(403, HttpResult{Status: 403, Data: fmt.Sprintf("generate token failed:%v", err)})
 
@@ -57,7 +57,7 @@ func checkDashToken(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	jwtToken, errToken := ParseToken(theToken, kuafuConfig.Dash.Secret)
+	jwtToken, errToken := ParseToken(theToken, kuafuConfig.Kuafu.Secret)
 	if errToken != nil {
 		log.Printf("dashboard jwt Token parse failed:%v,host:%v,path:%v,error:%v",
 			theToken, r.Host, r.URL.Path, errToken)

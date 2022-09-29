@@ -25,15 +25,12 @@ func isPrivateIP(ip net.IP) bool {
 	return false
 }
 
-func Quit() {
-	os.Exit(0)
-}
 func HandleOsKill() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Kill, os.Interrupt)
 	<-quit
 	fmt.Println("killing signal")
-	Quit()
+	os.Exit(0)
 }
 
 func notPrivateIP(c *gin.Context) {
