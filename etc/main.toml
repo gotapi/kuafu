@@ -37,7 +37,12 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 	backends=["localhost:4005"]
 
 [host."unhtml.shifen.de"]
-	backends=["localhost:3001"]
+	backends=["localhost:3000"]
+
+
+[host."api.shifen.de"]
+	backends=["localhost:3002"]
+
 
 [host."local.shifen.de"]
 	root="/Users/xurenlu/Sites/yance"
