@@ -50,6 +50,7 @@ func checkConfig() {
 	} else {
 		fmt.Printf("configuration syntax check  succeed,with %d hosts\n", len(kuafuConfig.Hosts))
 	}
+	afterLoad()
 }
 func Init() {
 	cobra.OnInitialize(initConfig)

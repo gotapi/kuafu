@@ -3,6 +3,7 @@ listenAt="0.0.0.0:5577"
 consulAddr="localhost:8500"
 trustProxies=["127.0.0.1"]
 trustedPlatform="X-Real-IP"
+accessLog="/tmp/kuafu.access.log"
 
 [dash]
 prefix="/_inner/hello2429527/"
@@ -49,6 +50,7 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 
 [host."prc.shifen.de"]
 	root="/Users/xurenlu/bin/prc/"
+	options = "+indexes"
 
 [host."3000.shifen.de"]
 	backends=["localhost:3000"]

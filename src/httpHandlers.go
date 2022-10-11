@@ -87,6 +87,7 @@ func hotUpdateMapFile() bool {
 		log.Printf("got error:%v", err)
 		return false
 	}
+	afterLoad()
 	generateServiceMap()
 	return true
 }
@@ -104,6 +105,7 @@ func KuafuHeaders() gin.HandlerFunc {
 	}
 }
 func KuafuProxy(c *gin.Context) {
+
 	w := c.Writer
 	r := c.Request
 	hostSeg := r.Host
@@ -279,10 +281,6 @@ func KuafuProxy(c *gin.Context) {
 	ip := c.ClientIP()
 	//根据 url.path 查到的静态文件服务
 	if len(upstreamConfig.Root) > 0 {
-		if upstreamConfig.StaticFsConfig.TryFiles == nil && hostRule.StaticFsConfig.TryFiles != nil {
-			upstreamConfig.StaticFsConfig.TryFiles = hostRule.StaticFsConfig.TryFiles
-		}
-
 		HandleStatic("/", http.Dir(upstreamConfig.Root), w, r, upstreamConfig.StaticFsConfig)
 		return
 	}
@@ -473,11 +471,16 @@ func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *htt
 	}
 
 	if d.IsDir() && !staticConfig.enableIndexes {
-		if staticConfig.TryFiles != nil {
-
+		targetOfIndex := strings.ReplaceAll(target+"/index.html", "//", "/")
+		indexF, errIndex := fs.Open(targetOfIndex)
+		defer func() {
+			indexF.Close()
+		}()
+		if errIndex != nil {
+			Error(w, "directory index disabled", 403)
+			return
 		}
-		Error(w, "directory index disabled", 403)
-		return
+		///index.html exists
 	}
 	//if staticConfig.enableIndexes
 	http.FileServer(fs).ServeHTTP(w, r)
@@ -487,6 +490,7 @@ func Error(w http.ResponseWriter, error string, code int) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)
+	w.Write([]byte(error))
 }
 
 func toHTTPError(err error) (msg string, httpStatus int) {

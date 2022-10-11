@@ -29,6 +29,7 @@ type DashConfig struct {
 	Prefix    string `toml:"prefix"`
 }
 type AppConfig struct {
+	AccessLog       string   `toml:"accessLog"`
 	LogFile         string   `toml:"logFile"`
 	ListenAt        string   `toml:"listenAt"`
 	ConsulAddr      string   `toml:"consulAddr"`
@@ -45,9 +46,8 @@ type KuafuConfig struct {
 	Hosts map[string]HostConfig `toml:"host"`
 }
 type StaticFsConfig struct {
-	Root          string   `toml:"root"`
-	TryFiles      []string `toml:"tryFiles"`
-	Options       string   `toml:"options"`
+	Root          string `toml:"root"`
+	Options       string `toml:"options"`
 	enableIndexes bool
 }
 type UpstreamConfig struct {
@@ -244,6 +244,18 @@ func loadConfig() error {
 		return logGitConfig(configFile, privateKeyFile, sshPassword)
 	}
 	return loadFromDisk(configFile)
+
+}
+
+func afterLoad() {
+	for k, v := range kuafuConfig.Hosts {
+		v.enableIndexes = false
+		lowerCaseHostOptions := strings.ToLower(v.Options)
+		if strings.Contains(lowerCaseHostOptions, "+indexes") {
+			v.enableIndexes = true
+		}
+		kuafuConfig.Hosts[k] = v
+	}
 }
 
 func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfig {
@@ -270,9 +282,6 @@ func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfi
 		pathConfig.enableIndexes = true
 	}
 	target.enableIndexes = pathConfig.enableIndexes
-	if pathConfig.TryFiles != nil {
-		target.TryFiles = pathConfig.TryFiles
-	}
 	if pathConfig.Backends != nil {
 		target.Backends = pathConfig.Backends
 	}
