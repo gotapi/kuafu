@@ -11,12 +11,11 @@ func TestNormalize(t *testing.T) {
 }
 func TestTomlDefaultValue(t *testing.T) {
 	str := `
-tryFiles=["index.html"]
 root="/Users/xurenlu/Sites/"
 options="+indexes"
 pathConfig=[
 {path="/api",options="-indexes"},
-{path="/assets",options="+indexes",tryFiles=["index.html"]},
+{path="/assets",options="+indexes"},
 ]
 `
 	var config HostConfig

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "1.3.3"
+const version = "1.3.5"
 
 /**
 上个锁（在更新后端服务器列表的时候锁一下）
@@ -172,7 +172,28 @@ func StartHttpService(addr string) {
 	updateApiGroup.POST("/backend/:domain", HandleUpdateServiceMap)
 	updateApiGroup.Use(UpdateApiLimitMiddleware())
 	r.NoRoute(KuafuProxy)
-	err = r.Run(addr)
+	var f *os.File
+	accessLogFile := kuafuConfig.Kuafu.AccessLog
+	if accessLogFile == "" || accessLogFile == "-" || strings.ToLower(accessLogFile) == "stdout" {
+		accessLogFile = "stdout"
+	}
+	if accessLogFile != "stdout" {
+		f, err = os.OpenFile(accessLogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+		if err != nil {
+			log.Fatalf("error opening file: %v,%v", accessLogFile, err)
+		}
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+			}
+		}(f)
+		err = http.ListenAndServe(addr,
+			LoggingHandler(f, r.Handler()))
+	} else {
+		err = http.ListenAndServe(addr,
+			LoggingHandler(os.Stdout, r.Handler()))
+	}
+
 	CheckErr(err)
 }
 
@@ -194,6 +215,7 @@ func startServer() {
 		fmt.Printf("error found:%v\n", err)
 		panic("load configuration failed")
 	}
+	afterLoad()
 	/**
 	如果有rateLimit的设置，遍历所有host,准备好rateLimit
 	*/
