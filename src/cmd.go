@@ -10,9 +10,6 @@ var (
 		Use:   "",
 		Short: "a http gateway",
 		Long:  `kuafu is a http gateway supports dynamic upstream routing, security enhance, static file serving.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			startServer()
-		},
 	}
 )
 
@@ -35,9 +32,9 @@ var versionCmd = &cobra.Command{
 }
 
 var runCmd = &cobra.Command{
-	Use:   "startServer",
-	Short: "startServer kuafu proxy server",
-	Long:  "startServer kuafu proxy server ",
+	Use:   "run",
+	Short: "start kuafu proxy server",
+	Long:  "start kuafu proxy server ",
 	Run: func(cmd *cobra.Command, args []string) {
 		startServer()
 	},
