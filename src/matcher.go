@@ -20,5 +20,5 @@ func pathBasedUpstream(hostRule HostConfig, r *http.Request) UpstreamConfig {
 			}
 		}
 	}
-	return UpstreamConfig{}
+	return hostRule.UpstreamConfig
 }

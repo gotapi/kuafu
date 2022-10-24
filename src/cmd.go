@@ -48,6 +48,14 @@ func checkConfig() {
 		fmt.Printf("configuration syntax check  succeed,with %d hosts\n", len(kuafuConfig.Hosts))
 	}
 	afterLoad()
+	fmt.Printf("listenAt:%v\n", kuafuConfig.Kuafu.ListenAt)
+	fmt.Printf("accessLog:%v\n", kuafuConfig.Kuafu.AccessLog)
+	fmt.Printf("logfile:%v\n", kuafuConfig.Kuafu.LogFile)
+	fmt.Printf("consulAddr:%v\n", kuafuConfig.Kuafu.ConsulAddr)
+	fmt.Printf("fallbackAddr:%v\n", kuafuConfig.Kuafu.FallbackAddr)
+	fmt.Printf("dash.prefix:%v\n", kuafuConfig.Kuafu.DashConfig.Prefix)
+	fmt.Printf("dash.superUser:%v\n", kuafuConfig.Kuafu.DashConfig.SuperUser)
+
 }
 func Init() {
 	cobra.OnInitialize(initConfig)
