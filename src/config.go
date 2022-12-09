@@ -176,7 +176,6 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	fs := memfs.New()
 	// Git objects storer based on memory
 	storer := memory.NewStorage()
-
 	// We instantiate a new repository targeting the given path (the .git folder)
 	r, err := git.Clone(storer, fs, &git.CloneOptions{
 		Auth:     publicKeys,
@@ -278,7 +277,6 @@ func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfi
 	if strings.Contains(lowerCasePathOptions, "-indexes") {
 		pathConfig.enableIndexes = false
 	}
-
 	if strings.Contains(lowerCasePathOptions, "+indexes") {
 		pathConfig.enableIndexes = true
 	}
