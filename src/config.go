@@ -49,6 +49,7 @@ type StaticFsConfig struct {
 	Root          string `toml:"root"`
 	Options       string `toml:"options"`
 	enableIndexes bool
+	TryFile       string `toml:"tryFile"`
 }
 type UpstreamConfig struct {
 	Backends        []string          `toml:"backends"`
