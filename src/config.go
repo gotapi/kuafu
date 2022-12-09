@@ -292,7 +292,9 @@ func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfi
 	if pathConfig.Root != "" {
 		target.Root = pathConfig.Root
 	}
-
+	if pathConfig.TryFile != "" {
+		target.TryFile = pathConfig.TryFile
+	}
 	return target
 	//pathConfig.
 
