@@ -22,7 +22,7 @@ var (
 	/**
 	处理过的请求数
 	*/
-	opsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	handledProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "kuafu_total_request",
 		Help: "The total number of processed requests",
 	})
@@ -94,7 +94,7 @@ func hotUpdateMapFile() bool {
 
 func KuafuStat() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		opsProcessed.Inc()
+		handledProcessed.Inc()
 		c.Next()
 	}
 }
@@ -441,7 +441,11 @@ func handle403(url string, c *gin.Context) {
 	}
 }
 
-func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *http.Request, staticConfig StaticFsConfig) {
+func getTryFile(config StaticFsConfig) string {
+	return strings.ReplaceAll(config.Root+"/"+config.TryFile, "//", "/")
+}
+
+func HandleStatic(root string, fileSystem http.FileSystem, w http.ResponseWriter, r *http.Request, staticConfig StaticFsConfig) {
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
@@ -450,8 +454,18 @@ func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *htt
 
 	target := path.Clean(upath)
 
-	f, err := fs.Open(target)
+	f, err := fileSystem.Open(target)
 	if err != nil {
+		if staticConfig.TryFile != "" {
+			fTry, errTry := fileSystem.Open(staticConfig.TryFile)
+			if errTry == nil {
+				statTry, errStatTry := fTry.Stat()
+				if errStatTry == nil {
+					http.ServeContent(w, r, r.URL.Path, statTry.ModTime(), fTry)
+					return
+				}
+			}
+		}
 		msg, code := toHTTPError(err)
 		Error(w, msg, code)
 		return
@@ -472,7 +486,7 @@ func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *htt
 
 	if d.IsDir() && !staticConfig.enableIndexes {
 		targetOfIndex := strings.ReplaceAll(target+"/index.html", "//", "/")
-		indexF, errIndex := fs.Open(targetOfIndex)
+		indexF, errIndex := fileSystem.Open(targetOfIndex)
 		defer func() {
 			indexF.Close()
 		}()
@@ -483,7 +497,7 @@ func HandleStatic(root string, fs http.FileSystem, w http.ResponseWriter, r *htt
 		///index.html exists
 	}
 	//if staticConfig.enableIndexes
-	http.FileServer(fs).ServeHTTP(w, r)
+	http.FileServer(fileSystem).ServeHTTP(w, r)
 }
 
 func Error(w http.ResponseWriter, error string, code int) {

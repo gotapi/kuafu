@@ -49,6 +49,7 @@ type StaticFsConfig struct {
 	Root          string `toml:"root"`
 	Options       string `toml:"options"`
 	enableIndexes bool
+	TryFile       string `toml:"tryFile"`
 }
 type UpstreamConfig struct {
 	Backends        []string          `toml:"backends"`
@@ -175,7 +176,6 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	fs := memfs.New()
 	// Git objects storer based on memory
 	storer := memory.NewStorage()
-
 	// We instantiate a new repository targeting the given path (the .git folder)
 	r, err := git.Clone(storer, fs, &git.CloneOptions{
 		Auth:     publicKeys,
@@ -277,7 +277,6 @@ func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfi
 	if strings.Contains(lowerCasePathOptions, "-indexes") {
 		pathConfig.enableIndexes = false
 	}
-
 	if strings.Contains(lowerCasePathOptions, "+indexes") {
 		pathConfig.enableIndexes = true
 	}
@@ -291,7 +290,9 @@ func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfi
 	if pathConfig.Root != "" {
 		target.Root = pathConfig.Root
 	}
-
+	if pathConfig.TryFile != "" {
+		target.TryFile = pathConfig.TryFile
+	}
 	return target
 	//pathConfig.
 
