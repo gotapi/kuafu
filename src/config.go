@@ -219,6 +219,10 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	return nil
 }
 func loadFromDisk(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Printf("%s does not exist\n", path)
+		return err
+	}
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
