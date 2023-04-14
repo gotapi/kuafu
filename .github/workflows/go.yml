@@ -18,8 +18,14 @@ jobs:
       with:
         go-version: 1.20
 
+    - name: tidy
+      run: go mod tidy
+
+    - name: Install dependencies
+      run: go mod download
+
     - name: Build
-      run: go build -v -o ./kuafu ./src/*.go
+      run: go build -v -o ./kuafu ./src/
 
     - name: Test
       run: go test -v ./src/
