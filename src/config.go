@@ -89,6 +89,9 @@ var configFile string
 var privateKeyFile string
 var sshPassword string
 
+var pidFilePath string = "/var/run/kuafu.pid"
+var debugMode bool = false
+
 func generateServiceMap() {
 	var sMap = make(map[string]BackendHostArray)
 	for key, config := range kuafuConfig.Hosts {

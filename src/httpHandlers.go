@@ -433,6 +433,8 @@ func KuafuValidation() gin.HandlerFunc {
 
 }
 func handle403(url string, c *gin.Context) {
+	currentUrl := "https://" + c.Request.Host + c.Request.URL.String()
+	url = strings.ReplaceAll(url, "%CURRENT_URL%", currentUrl)
 	requestWith := c.Request.Header.Get("X-Requested-With")
 	if requestWith == "XMLHttpRequest" {
 		c.JSON(200, HttpResult{Status: 403, Data: url})
@@ -518,7 +520,7 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 	return "500 Internal Server Error", http.StatusInternalServerError
 }
 
-//CheckBasicAuth 检查是否通过了http basic 认证，通过了返回true,不通过返回false
+// CheckBasicAuth 检查是否通过了http basic 认证，通过了返回true,不通过返回false
 func CheckBasicAuth(w http.ResponseWriter, r *http.Request, name string, pass string) bool {
 	username, password, ok := r.BasicAuth()
 	if !ok {

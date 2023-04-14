@@ -1,3 +1,9 @@
+## 1.3.9
+
+1. signal handling: kuafu can now  reload configurations by simply typing `kuafu -s reload`.
+2. return url placeholder: `%CURRENT_URL%` is now supported when configuring automatic login checks.
+3. when using the `--debug` flag,kuafu will open debug mode for gin ,which  i.e.  `gin.setMode(gin.DebugMode)` will be executed.
+
 ## 1.3.3
 
 #### cobra based command line arguments parsing
@@ -29,7 +35,7 @@ There are two matching method:
 	]
 ```
 
-- [ ] try_files support
+- [x] try_files support
 - [ ] ~~域名匹配尝试采用正则匹配。~~
 - [ ] ~~ 规整报错，分级写入不同的日志文件。~~
 - [ ] fastcgi支持

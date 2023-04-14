@@ -15,9 +15,10 @@ import (
 	"time"
 )
 
-const version = "1.3.8"
+const version = "1.3.9"
 
-/**
+/*
+*
 上个锁（在更新后端服务器列表的时候锁一下）
 */
 var serviceLocker = new(sync.Mutex)
@@ -144,6 +145,11 @@ func StartHttpService(addr string) {
 	}
 
 	r := gin.Default()
+	if debugMode {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
 	err := r.SetTrustedProxies(kuafuConfig.Kuafu.TrustedProxies)
@@ -153,6 +159,10 @@ func StartHttpService(addr string) {
 	r.Use(KuafuHeaders())
 	r.Use(KuafuStat())
 	r.Use(RateLimitMiddleware())
+
+	r.GET("/__/kuafu/version", func(c *gin.Context) {
+		c.String(http.StatusOK, "kuafu "+version)
+	})
 	innerGroup := r.Group("/" + prefix)
 	openGroup := innerGroup.Group("/open")
 	openGroup.GET("/status", HandleStatusPage)
@@ -246,5 +256,11 @@ func startServer() {
 	} else {
 		serviceMap = serviceMapInFile
 	}
+	err = writePidFile(pidFilePath)
+	if err != nil {
+		log.Println("Failed to write PID file:", pidFilePath)
+		return
+	}
+	waitUsr1Signal()
 	select {}
 }
