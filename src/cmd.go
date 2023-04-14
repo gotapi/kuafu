@@ -11,14 +11,14 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "",
 		Short: "a http gateway",
-		Long:  `kuafu is a http gateway supports dynamic upstream routing, security enhance, static file serving.`,
+		Long:  `kuafu is an HTTP gateway that supports dynamic upstream routing, security enhancement, static file serving.`,
 	}
 )
 
 var testCmd = &cobra.Command{
 	Use:   "test",
-	Short: "check if  the configuration file is valid",
-	Long:  "check if  the configuration file is valid",
+	Short: "check that  the configuration file is valid",
+	Long:  "check that  the configuration file is valid",
 	Run: func(cmd *cobra.Command, args []string) {
 		checkConfig()
 	},
@@ -97,14 +97,9 @@ func Init() {
 
 	rootCmd.AddCommand(versionCmd)
 
-	testCmd.PersistentFlags().StringVar(&configFile, "config", "/etc/kuafu.toml", "config file (default is /etc/kuafu.toml)")
 	rootCmd.AddCommand(testCmd)
 
 	rootCmd.AddCommand(reloadCmd)
-
-	runCmd.PersistentFlags().StringVar(&configFile, "config", "/etc/kuafu.toml", "config file (default is /etc/kuafu.toml)")
-	runCmd.PersistentFlags().StringVar(&privateKeyFile, "private-key", "~/.ssh/id_rsa", "ssh private key file path")
-	runCmd.PersistentFlags().StringVar(&sshPassword, "ssh-password", "", "ssh private key password")
 
 	rootCmd.AddCommand(runCmd)
 }
