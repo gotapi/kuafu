@@ -14,13 +14,13 @@
   <a href="">
     <img src="https://img.shields.io/github/issues/gotapi/kuafu" alt="last update" />
   </a>
-  <a href="https://github.com/Louis3797/awesome-readme-template/network/members">
+  <a href="https://github.com/gotapi/kuafu/network/members">
     <img src="https://img.shields.io/github/forks/gotapi/kuafu" alt="forks" />
   </a>
-  <a href="https://github.com/Louis3797/awesome-readme-template/stargazers">
+  <a href="https://github.com/gotapi/kuafus/stargazers">
     <img src="https://img.shields.io/github/stars/gotapi/kuafu" alt="stars" />
   </a>
-  <a href="https://github.com/Louis3797/awesome-readme-template/issues/">
+  <a href="https://github.com/gotapi/kuafu/issues/">
     <img src="https://img.shields.io/github/license/gotapi/kuafu" alt="open issues" />
   </a>
 

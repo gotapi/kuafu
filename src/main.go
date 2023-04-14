@@ -15,9 +15,10 @@ import (
 	"time"
 )
 
-const version = "1.3.8"
+const version = "1.3.9"
 
-/**
+/*
+*
 上个锁（在更新后端服务器列表的时候锁一下）
 */
 var serviceLocker = new(sync.Mutex)
@@ -143,6 +144,11 @@ func StartHttpService(addr string) {
 		prefix = strings.ReplaceAll(prefix, "//", "/")
 	}
 
+	if debugMode {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
 
 	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
@@ -153,6 +159,10 @@ func StartHttpService(addr string) {
 	r.Use(KuafuHeaders())
 	r.Use(KuafuStat())
 	r.Use(RateLimitMiddleware())
+
+	r.GET("/__/kuafu/version", func(c *gin.Context) {
+		c.String(http.StatusOK, "kuafu "+version)
+	})
 	innerGroup := r.Group("/" + prefix)
 	openGroup := innerGroup.Group("/open")
 	openGroup.GET("/status", HandleStatusPage)
@@ -208,14 +218,15 @@ func startServer() {
 	var err error
 
 	InitIpArray()
-	initFlags()
 
 	err = loadConfig()
 	if err != nil {
 		fmt.Printf("error found:%v\n", err)
-		panic("load configuration failed")
+		log.Printf("load configuration failed,%v not exists or not readable\n", configFile)
+		return
 	}
 	afterLoad()
+	initFlags()
 	/**
 	如果有rateLimit的设置，遍历所有host,准备好rateLimit
 	*/
@@ -246,5 +257,11 @@ func startServer() {
 	} else {
 		serviceMap = serviceMapInFile
 	}
+	err = writePidFile(pidFilePath)
+	if err != nil {
+		log.Println("Failed to write PID file:", pidFilePath)
+		return
+	}
+	waitUsr1Signal()
 	select {}
 }

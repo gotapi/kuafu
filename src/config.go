@@ -89,6 +89,9 @@ var configFile string
 var privateKeyFile string
 var sshPassword string
 
+var pidFilePath string = "/var/run/kuafu.pid"
+var debugMode bool = false
+
 func generateServiceMap() {
 	var sMap = make(map[string]BackendHostArray)
 	for key, config := range kuafuConfig.Hosts {
@@ -216,6 +219,10 @@ func logGitConfig(path string, privateKeyFile string, password string) error {
 	return nil
 }
 func loadFromDisk(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Printf("%s does not exist\n", path)
+		return err
+	}
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err

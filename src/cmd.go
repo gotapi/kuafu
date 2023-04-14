@@ -3,22 +3,48 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"os"
+	"syscall"
 )
 
 var (
 	rootCmd = &cobra.Command{
 		Use:   "",
 		Short: "a http gateway",
-		Long:  `kuafu is a http gateway supports dynamic upstream routing, security enhance, static file serving.`,
+		Long:  `kuafu is an HTTP gateway that supports dynamic upstream routing, security enhancement, static file serving.`,
 	}
 )
 
 var testCmd = &cobra.Command{
 	Use:   "test",
-	Short: "check if  the configuration file is valid",
-	Long:  "check if  the configuration file is valid",
+	Short: "check that  the configuration file is valid",
+	Long:  "check that  the configuration file is valid",
 	Run: func(cmd *cobra.Command, args []string) {
 		checkConfig()
+	},
+}
+
+var reloadCmd = &cobra.Command{
+	Use:   "reload",
+	Short: "reload the configuration file",
+	Long:  "reload the configuration file",
+	Run: func(cmd *cobra.Command, args []string) {
+		pid, err := readPidFile(pidFilePath)
+		if err != nil {
+			fmt.Println("Failed to read PID file:", pidFilePath)
+			return
+		}
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			fmt.Println("Failed to find process:", pid)
+			return
+		}
+		err = proc.Signal(syscall.SIGUSR1)
+		if err != nil {
+			fmt.Println("Failed to send signal:", err)
+			return
+		}
+		fmt.Println("Reload signal sent successfully")
 	},
 }
 
@@ -57,22 +83,26 @@ func checkConfig() {
 	fmt.Printf("dash.superUser:%v\n", kuafuConfig.Kuafu.DashConfig.SuperUser)
 
 }
+
+/*
+initialize the command line flags
+*/
 func Init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "/etc/kuafu.toml", "config file (default is /etc/kuafu.toml)")
 	rootCmd.PersistentFlags().StringVar(&privateKeyFile, "private-key", "~/.ssh/id_rsa", "ssh private key file path")
 	rootCmd.PersistentFlags().StringVar(&sshPassword, "ssh-password", "", "ssh private key password")
+	rootCmd.PersistentFlags().StringVar(&pidFilePath, "pid", pidFilePath, "config file (default is /var/run/kuafu.pid)")
+	rootCmd.PersistentFlags().BoolVar(&debugMode, "debug", false, "debug mode for gin")
 
 	rootCmd.AddCommand(versionCmd)
 
-	testCmd.PersistentFlags().StringVar(&configFile, "config", "/etc/kuafu.toml", "config file (default is /etc/kuafu.toml)")
 	rootCmd.AddCommand(testCmd)
 
-	runCmd.PersistentFlags().StringVar(&configFile, "config", "/etc/kuafu.toml", "config file (default is /etc/kuafu.toml)")
-	runCmd.PersistentFlags().StringVar(&privateKeyFile, "private-key", "~/.ssh/id_rsa", "ssh private key file path")
-	runCmd.PersistentFlags().StringVar(&sshPassword, "ssh-password", "", "ssh private key password")
+	rootCmd.AddCommand(reloadCmd)
 
 	rootCmd.AddCommand(runCmd)
+
 }
 
 func initConfig() {
