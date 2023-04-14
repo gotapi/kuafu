@@ -144,12 +144,12 @@ func StartHttpService(addr string) {
 		prefix = strings.ReplaceAll(prefix, "//", "/")
 	}
 
-	r := gin.Default()
 	if debugMode {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
+	r := gin.Default()
 
 	r.TrustedPlatform = kuafuConfig.Kuafu.TrustedPlatform
 	err := r.SetTrustedProxies(kuafuConfig.Kuafu.TrustedProxies)
@@ -218,14 +218,15 @@ func startServer() {
 	var err error
 
 	InitIpArray()
-	initFlags()
 
 	err = loadConfig()
 	if err != nil {
 		fmt.Printf("error found:%v\n", err)
-		panic("load configuration failed")
+		log.Printf("load configuration failed,%v not exists or not readable\n", configFile)
+		return
 	}
 	afterLoad()
+	initFlags()
 	/**
 	如果有rateLimit的设置，遍历所有host,准备好rateLimit
 	*/

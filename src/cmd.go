@@ -102,6 +102,7 @@ func Init() {
 	rootCmd.AddCommand(reloadCmd)
 
 	rootCmd.AddCommand(runCmd)
+
 }
 
 func initConfig() {

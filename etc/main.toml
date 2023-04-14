@@ -4,8 +4,8 @@ consulAddr="localhost:8500"
 trustProxies=["127.0.0.1"]
 trustedPlatform="X-Real-IP"
 accessLog="/tmp/kuafu.access.log"
-
-[dash]
+logFile="/tmp/kuafua.all.log"
+fallback="127.0.0.1:3000"
 prefix="/_inner/hello2429527/"
 superUser="admin"
 superPass="admin"
