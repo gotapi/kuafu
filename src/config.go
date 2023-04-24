@@ -261,12 +261,15 @@ func afterLoad() {
 		if strings.Contains(lowerCaseHostOptions, "+indexes") {
 			v.enableIndexes = true
 		}
+		if v.HashMethod == "" {
+			v.HashMethod = RandHash
+		}
 		kuafuConfig.Hosts[k] = v
 	}
 }
 
 func mergeConfig(pathConfig UpstreamConfig, hostConfig HostConfig) UpstreamConfig {
-	var target UpstreamConfig = UpstreamConfig{
+	var target = UpstreamConfig{
 		Backends:        hostConfig.Backends,
 		UpstreamHeaders: hostConfig.UpstreamHeaders,
 		HashMethod:      hostConfig.HashMethod,

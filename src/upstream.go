@@ -15,10 +15,13 @@ func GetAllBackends(hostname string) BackendHostArray {
 	return serviceMap[Normalize(hostname)]
 }
 func GetBackendByUpstreamConfig(config UpstreamConfig, r *http.Request, ip string) string {
+
 	if len(config.Backends) == 1 {
+		log.Println("upstream has only 1 candidate, return it directly")
 		return config.Backends[0]
 	}
 	if config.HashMethod == RandHash || config.HashMethod == LoadRound {
+		log.Println("upstream has multiple candidates, use rand hash")
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		idx := r.Intn(len(config.Backends))
 		return config.Backends[idx]
@@ -31,9 +34,11 @@ func GetBackendByUpstreamConfig(config UpstreamConfig, r *http.Request, ip strin
 		if config.HashMethod == UrlHash {
 			seed = r.URL.Path
 		}
+		log.Printf("upstream has multiple candidates, use %s hash", config.HashMethod)
 		crc32q := crc32.MakeTable(0xD5828281)
 		checkSum := crc32.Checksum([]byte(seed), crc32q)
 		idx := checkSum % uint32(len(config.Backends))
+		log.Printf("return %d-th backend\n", idx)
 		return config.Backends[idx]
 	}
 	return ""
