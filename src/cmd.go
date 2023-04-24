@@ -81,7 +81,6 @@ func checkConfig() {
 	fmt.Printf("fallbackAddr:%v\n", kuafuConfig.Kuafu.FallbackAddr)
 	fmt.Printf("dash.prefix:%v\n", kuafuConfig.Kuafu.DashConfig.Prefix)
 	fmt.Printf("dash.superUser:%v\n", kuafuConfig.Kuafu.DashConfig.SuperUser)
-
 }
 
 /*

@@ -147,13 +147,7 @@ func KuafuProxy(c *gin.Context) {
 			}
 		}
 		if hostRule.AutoCors {
-			if r.Method == "OPTIONS" {
-				AttachCorsHeaders(w, r)
-				c.Writer.WriteHeader(204)
-				c.Writer.WriteString("no content")
-				c.Abort()
-				return
-			}
+			AttachCorsHeaders(w, r)
 		}
 	} else {
 		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
@@ -293,7 +287,11 @@ func KuafuProxy(c *gin.Context) {
 	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	log.Println("try path based backends")
 	backend := ""
+	if upstreamConfig.HashMethod == "" {
+		upstreamConfig.HashMethod = RandHash
+	}
 	if len(upstreamConfig.Backends) > 0 {
+		log.Printf("lookup upstream from upstream config")
 		backend = GetBackendByUpstreamConfig(upstreamConfig, r, ip)
 	} else {
 		backend = GetBackendServerByHostName(queryHost, ip, r, backendHashMethod)
