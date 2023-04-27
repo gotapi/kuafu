@@ -300,8 +300,8 @@ func KuafuProxy(c *gin.Context) {
 		if len(kuafuConfig.Kuafu.FallbackAddr) > 0 && kuafuConfig.Kuafu.FallbackAddr != "-" {
 			backend = kuafuConfig.Kuafu.FallbackAddr
 		} else {
-			http.Error(w, "we can't decide which backend could serve this request ", 502)
 			failedRequest.Inc()
+			c.String(http.StatusBadGateway, "we can't decide which backend could serve this request ")
 			return
 		}
 	}
