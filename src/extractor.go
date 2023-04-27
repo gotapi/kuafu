@@ -18,22 +18,26 @@ type ExtractorConfig struct {
 
 func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
 	secret := config.Config["secret"].(string)
-	from := strings.ToLower(config.Config["from"].(string))
+	source := strings.ToLower(config.Config["source"].(string))
 	method := strings.ToLower(config.Method)
+	field := config.Config["from"].(string)
 	if method != "insert" && method != "update" {
 		return false, errors.New("method field must be insert or update")
 	}
-	if from == "" {
-		return false, errors.New("from  field is empty")
+	if source == "" {
+		return false, errors.New("source  field is empty")
 	}
-	if from != "header" && from != "cookie" {
-		return false, errors.New("from field must be header or cookie")
+	if source != "header" && source != "cookie" {
+		return false, errors.New("source field must be header or cookie")
+	}
+	if field == "" {
+		return false, errors.New("field field is empty")
 	}
 	var tokenString string
-	if from == "header" {
-		tokenString = c.GetHeader(config.Config["target"].(string))
+	if source == "header" {
+		tokenString = c.GetHeader(field)
 	} else {
-		tokenString, _ = c.Cookie(config.Config["target"].(string))
+		tokenString, _ = c.Cookie(field)
 	}
 	parsedJwt, err := ParseJwt(tokenString, secret)
 	if err != nil {
@@ -56,15 +60,16 @@ func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (b
 func IpExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
 	ip := net.ParseIP(c.ClientIP())
 	ipStr := ip.To4().String()
+	fieldName := config.Config["to"].(string)
 	if ipStr == "" {
 		return false, errors.New("can't parse ip")
 	}
 	if config.Method == "update" {
-		(*data)["ip"] = ipStr
+		(*data)[fieldName] = ipStr
 		return true, nil
 	} else {
-		if _, ok := (*data)["ip"]; !ok {
-			(*data)["ip"] = ipStr
+		if _, ok := (*data)[fieldName]; !ok {
+			(*data)[fieldName] = ipStr
 			return true, nil
 		}
 	}
@@ -99,6 +104,54 @@ func CopyExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (
 	}
 	return false, nil
 }
+
+func HeaderExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+	from := config.Config["from"].(string)
+	toField := config.Config["to"].(string)
+	if from == "" {
+		return false, errors.New(" field [from] is empty")
+	}
+	if toField == "" {
+		return false, errors.New(" field [to] is empty")
+	}
+	newVal := c.GetHeader(from)
+	if config.Method == "update" {
+		(*data)[toField] = newVal
+		return true, nil
+	} else {
+		if _, ok := (*data)[from]; !ok {
+			(*data)[toField] = newVal
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func CookieExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+	from := config.Config["from"].(string)
+	toField := config.Config["to"].(string)
+	if from == "" {
+		return false, errors.New(" field [from] is empty")
+	}
+	if toField == "" {
+		return false, errors.New(" field [to] is empty")
+	}
+	newVal, err := c.Cookie(from)
+	if err != nil {
+		newVal = ""
+	}
+	if config.Method == "update" {
+		(*data)[toField] = newVal
+		return true, nil
+	} else {
+		if _, ok := (*data)[from]; !ok {
+			(*data)[toField] = newVal
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func ParseJwt(tokenString string, secret string) (*jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

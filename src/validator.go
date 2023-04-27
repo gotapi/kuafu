@@ -10,14 +10,13 @@ import (
 type ConfigMap map[string]interface{}
 type SessionData map[string]interface{}
 
-type WeightConfig []int
 type Validator struct {
 	Name   string
 	Config ConfigMap
 }
 type ValidatorConfig struct {
 	Type   string    `toml:"type"`
-	Weight []int     `toml:"weight"`
+	Weight int       `toml:"weight"`
 	Config ConfigMap `toml:"config"`
 }
 type ValidatorInterface interface {
@@ -68,26 +67,6 @@ func WhiteListValidator(c *gin.Context, config *ConfigMap, data *SessionData) (b
 		}
 	}
 	return false, errors.New("target not in white list")
-}
-
-// BlackListValidator @Description: 黑名单验证器
-func BlackListValidator(c *gin.Context, config *ConfigMap, data *SessionData) (bool, error) {
-	target := (*config)["target"].(string)
-	targetList := (*config)["list"].([]string)
-	if target == "" {
-		return false, errors.New("configuration error:target is empty. contact your administrator please")
-	}
-	if targetList == nil || len(targetList) == 0 {
-		return true, errors.New("configuration error:list is empty. contact your administrator please")
-	}
-	var value string
-	value = (*data)[target].(string)
-	for _, v := range targetList {
-		if v == value {
-			return false, nil
-		}
-	}
-	return true, errors.New("target in black list")
 }
 
 // NonEmptyValidator @Description: 非空验证器

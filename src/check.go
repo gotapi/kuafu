@@ -66,6 +66,16 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 			if err != nil {
 				log.Printf("got error from copy extractor:%v", err)
 			}
+		case "cookie":
+			_, err := CookieExtractor(c, &config, sessionData)
+			if err != nil {
+				log.Printf("got error from cookie extractor:%v", err)
+			}
+		case "header":
+			_, err := HeaderExtractor(c, &config, sessionData)
+			if err != nil {
+				log.Printf("got error from header extractor:%v", err)
+			}
 		}
 	}
 
@@ -86,14 +96,7 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 			}
 			result = tmp
 
-		case "blacklist":
-			tmp, err := BlackListValidator(c, &validator.Config, sessionData)
-			if err != nil {
-				log.Printf("got error from blacklist validator:%v", err)
-			}
-			result = tmp
-
-		case "whitelist":
+		case "in-list":
 			tmp, err := WhiteListValidator(c, &validator.Config, sessionData)
 			if err != nil {
 				log.Printf("got error from whitelist validator:%v", err)
@@ -107,12 +110,10 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 			result = tmp
 		}
 		if result {
-			score += validator.Weight[1]
-		} else {
-			score += validator.Weight[0]
+			score += validator.Weight
 		}
 	}
-	if score >= 0 {
+	if score > 0 {
 		c.Next()
 	} else {
 		handle403(hostConfig.LoginUrl, c)

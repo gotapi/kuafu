@@ -16,17 +16,19 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 
 [host."boot.shifen.de"]
 	extractors = [
-		{type="jwt",method="insert",config={secret="hellobabyWhatareyoudoing",from="header",target="Authorization"}},
-		{type="copy",method="insert",config={from="header",to="_wjId"}},
-		{type="copy",method="insert",config={from="header",to="_ip"}},
-		{type="ip",method="update",config={"target"="_ip"}}]
+		{type="jwt",method="insert",config={secret="hellobabyWhatareyoudoing",source="header",from="Authorization"}},
+		{type="copy",method="update",config={from="_wjId",to="id"}},
+		{type="copy",method="update",config={from="_wjName",to="name"}},
+		{type="header",method="update",config={from="X-Real-IP",to="_ip"}},
+		{type="cookie",method="update",config={from="X-Real-IP",to="_ip"}},
+		{type="ip",method="update",config={to="remote_ip"}}]
 	validators=[
-		{type="basic",weight=[-1,10000],config={"username"="admin","password"="admin"}},
-		{type="whitelist",weight=[-1,10000],config={"list"=["abcd","efghi"],target="_wjId"}},
-		{type="blacklist",weight=[-100000,100],config={"list"=["abcd","efghi"],target="_wjId"}},
-		{type="blacklist",weight=[-1,100],config={list=["abcd","efghi"],target="_ip"}},
-		{type="private-ip",weight=[-1,100]},
-		{type="not-empty",weight=[-1,100],config={target="_wjId"}}
+		{type="basic",weight=10000,config={"username"="admin","password"="admin"}},
+		{type="in-list",weight=10000,config={"list"=["abcd","efghi"],target="_wjId"}},
+		{type="in-list",weight=-100000,config={"list"=["badgues-1","budguys-2"],target="_wjId"}},
+		{type="blacklist",weight=100,config={list=["abcd","efghi"],target="_ip"}},
+		{type="private-ip",weight=100},
+		{type="not-empty",weight=100,config={target="_wjId"}}
 	]
 	root="/Users/xurenlu/Sites/bootshiro/src/main/resources/static"
 	loginUrl= "https://glogin.shifen.de/github/login?_returnUrl=https://boot.shifen.de/"
