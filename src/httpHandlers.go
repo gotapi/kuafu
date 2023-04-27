@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -108,173 +107,16 @@ func KuafuProxy(c *gin.Context) {
 
 	w := c.Writer
 	r := c.Request
-	hostSeg := r.Host
-	idx := strings.Index(hostSeg, ":")
-	if idx < 0 {
-		idx = 0
-	}
-	runes := []rune(hostSeg)
-	queryHost := string(runes[0:idx])
-	if queryHost == "" {
-		queryHost = hostSeg
-	}
-	hostRule, okRule := kuafuConfig.Hosts[queryHost]
-	authenticateMethod := "none"
-	backendHashMethod := RandHash
-	upstreamConfig := UpstreamConfig{}
-	if okRule {
-		upstreamConfig = pathBasedUpstream(hostRule, r)
-		authenticateMethod = hostRule.Method
-		if len(hostRule.HashMethod) > 0 {
-			backendHashMethod = hostRule.HashMethod
-		}
-		if len(upstreamConfig.HashMethod) > 0 {
-			backendHashMethod = upstreamConfig.HashMethod
-		}
-		if hostRule.AddOnHeaders != nil {
-			for k, v := range hostRule.AddOnHeaders {
-				w.Header().Set(k, v)
-			}
-		}
-		if upstreamConfig.UpstreamHeaders != nil {
-			for k, v := range upstreamConfig.UpstreamHeaders {
-				r.Header.Set(k, v)
-			}
-		}
-		if hostRule.UpstreamHeaders != nil {
-			for k, v := range hostRule.UpstreamHeaders {
-				r.Header.Set(k, v)
-			}
-		}
-		if hostRule.AutoCors {
-			AttachCorsHeaders(w, r)
-		}
-	} else {
-		log.Printf("ruleMap{%v} not found,no authentication method used.", queryHost)
-	}
-	if backendHashMethod == "" {
-		backendHashMethod = RandHash
-	}
-	if authenticateMethod == "basic" {
-		if !CheckBasicAuth(w, r, hostRule.AuthName, hostRule.AuthPass) {
-			deniedRequest.Inc()
-			requestBasicAuthentication(w)
-			return
-		}
-	}
-	if strings.Contains(authenticateMethod, "private-ip") {
-		ip := net.ParseIP(c.ClientIP())
-		if ip == nil {
-			http.Error(w, "this site requires private network.\n we can't parse your ip", 403)
-			return
-		}
-		if !isPrivateIP(ip) {
-			deniedRequest.Inc()
-			notPrivateIP(c)
-			return
-		}
-	}
-	if strings.Contains(authenticateMethod, "cookie") || strings.Contains(authenticateMethod, "authorization") {
-		var theToken string
-		var cookie *http.Cookie
-		var er error
-		if authenticateMethod == "cookie" {
-			var tokenName = ""
-			if len(hostRule.TokenName) > 0 {
-				tokenName = hostRule.TokenName
-			} else {
-				tokenName = "_wjToken"
-			}
-			cookie, er = r.Cookie(tokenName)
-			if er != nil {
-				log.Printf("fetch wjCookie failed: host:%v,path:%v", r.Host, r.URL.Path)
-				handle403(hostRule.LoginUrl, c)
-				deniedRequest.Inc()
-				return
-			}
-			theToken = cookie.Value
-		}
-		if authenticateMethod == "authorization" {
-			var authorizations, _authorizationOk = r.Header["Authorization"]
-			if _authorizationOk {
-				theToken = strings.Trim(authorizations[0], " ")
-				/**
-				如果是发送的Authorization: Bearer **类似的头，则去掉这个Bearer ；
-				*/
-				if strings.HasPrefix(theToken, "Bearer ") {
-					theToken = strings.TrimPrefix(theToken, "Bearer ")
-				}
-			} else {
-				log.Printf("fetch Authorization Header failed: host:%v,path:%v", r.Host, r.URL.Path)
-				handle403(hostRule.LoginUrl, c)
-				deniedRequest.Inc()
-				return
-			}
-		}
-		if strings.Contains(theToken, "Basic ") {
-			log.Printf("Bearer Token should not contain blank. the token is :%v\n,host:%v,path:%v", theToken, r.Host, r.URL.Path)
-			handle403(hostRule.LoginUrl, c)
-			deniedRequest.Inc()
-			return
-		}
-		jwtToken, errToken := ParseToken(theToken, hostRule.Secret)
-		if errToken != nil {
-			log.Printf("jwt Token parse failed:%v,host:%v,path:%v,secret:%v,error:%v",
-				theToken, r.Host, r.URL.Path, hostRule.Secret, errToken)
-			handle403(hostRule.LoginUrl, c)
-			deniedRequest.Inc()
-			return
-		} else {
-			log.Printf("jwt token parsed,host:%v,path:%v,token:%v", r.Host, r.URL.Path, jwtToken)
-		}
-		hostRule.RequiredField = strings.ToLower(hostRule.RequiredField)
-		if hostRule.RequiredField == "name" {
-			if len(jwtToken.Name) == 0 {
-				handle403(hostRule.LoginUrl, c)
-				deniedRequest.Inc()
-				return
-			}
-		}
 
-		if hostRule.RequiredField == "userId" {
-			if len(jwtToken.UserId) == 0 {
-				handle403(hostRule.LoginUrl, c)
-				deniedRequest.Inc()
-				return
-			}
-		}
-		if hostRule.RequiredField == "subject" {
-			if len(jwtToken.Subject) == 0 {
-				handle403(hostRule.LoginUrl, c)
-				deniedRequest.Inc()
-				return
-			}
-		}
-		//如果启用uid访问限制
-		if len(hostRule.AllowUid) > 0 {
-			allow := false
-			//检查当前用户是否在指定用户列表中
-			if len(jwtToken.UserId) > 0 {
-				for _, allowUid := range hostRule.AllowUid {
-					if allowUid == jwtToken.UserId {
-						allow = true
-						break
-					}
-				}
-			}
-
-			if !allow {
-				deniedRequest.Inc()
-				data, _ := json.Marshal(&HttpResult{Status: 401, Data: "uid not in allow user list"})
-				WriteOutput(data, w)
-				return
-			}
-		}
-
+	hostRule, err := FetchHostConfig(c)
+	if err != nil {
+		c.String(http.StatusBadGateway, "we can't decide which backend could serve this request ")
+		return
 	}
 	ip := c.ClientIP()
+	upstreamConfig := hostRule.UpstreamConfig
 	//根据 url.path 查到的静态文件服务
-	if len(upstreamConfig.Root) > 0 {
+	if len(hostRule.UpstreamConfig.Root) > 0 {
 		HandleStatic("/", http.Dir(upstreamConfig.Root), w, r, upstreamConfig.StaticFsConfig)
 		return
 	}
@@ -283,18 +125,22 @@ func KuafuProxy(c *gin.Context) {
 		HandleStatic("/", http.Dir(hostRule.Root), w, r, hostRule.UpstreamConfig.StaticFsConfig)
 		return
 	}
-
-	log.Printf("query backend for host:" + queryHost + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
+	backendHashMethod := hostRule.UpstreamConfig.HashMethod
+	if backendHashMethod == "" {
+		backendHashMethod = RandHash
+	}
+	log.Printf("query backend for host:" + c.Request.Host + ",ip:" + ip + ",path:" + r.URL.Path + "，method:" + backendHashMethod)
 	log.Println("try path based backends")
 	backend := ""
 	if upstreamConfig.HashMethod == "" {
 		upstreamConfig.HashMethod = RandHash
 	}
+	hostname, _ := GetHostname(c)
 	if len(upstreamConfig.Backends) > 0 {
 		log.Printf("lookup upstream from upstream config")
 		backend = GetBackendByUpstreamConfig(upstreamConfig, r, ip)
 	} else {
-		backend = GetBackendServerByHostName(queryHost, ip, r, backendHashMethod)
+		backend = GetBackendServerByHostName(hostname, ip, r, backendHashMethod)
 	}
 	if backend == "" {
 		if len(kuafuConfig.Kuafu.FallbackAddr) > 0 && kuafuConfig.Kuafu.FallbackAddr != "-" {
@@ -379,7 +225,7 @@ func hijack(err error, hj http.Hijacker, w gin.ResponseWriter, peer net.Conn) {
 		}
 	}()
 }
-func KuafuValidation() gin.HandlerFunc {
+func KuafuDashboardValidation() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		w := c.Writer
 		r := c.Request

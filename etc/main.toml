@@ -4,7 +4,7 @@ consulAddr="localhost:8500"
 trustProxies=["127.0.0.1"]
 trustedPlatform="X-Real-IP"
 accessLog="/tmp/kuafu.access.log"
-logFile="/tmp/kuafua.all.log"
+logFile="/tmp/kuafu.all.log"
 fallback="127.0.0.1:3000"
 prefix="/_inner/hello2429527/"
 superUser="admin"
@@ -15,87 +15,22 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 	root="/Users/xurenlu/Sites/write.git/frontend/dist/"
 
 [host."boot.shifen.de"]
+	extractors = [
+		{type="jwt",method="insert",config={secret="hellobabyWhatareyoudoing",from="header",target="Authorization"}},
+		{type="copy",method="insert",config={from="header",to="_wjId"}},
+		{type="copy",method="insert",config={from="header",to="_ip"}},
+		{type="ip",method="update",config={"target"="_ip"}}]
+	validators=[
+		{type="basic",weight=[-1,10000],config={"username"="admin","password"="admin"}},
+		{type="whitelist",weight=[-1,10000],config={"list"=["abcd","efghi"],target="_wjId"}},
+		{type="blacklist",weight=[-100000,100],config={"list"=["abcd","efghi"],target="_wjId"}},
+		{type="blacklist",weight=[-1,100],config={list=["abcd","efghi"],target="_ip"}},
+		{type="private-ip",weight=[-1,100]},
+		{type="not-empty",weight=[-1,100],config={target="_wjId"}}
+	]
 	root="/Users/xurenlu/Sites/bootshiro/src/main/resources/static"
-	method="cookie"
-	secret="9949375530af2bb382952c031760e0ed8a6548a1bbdd22e0d3de750fb9e6a786b75435e62b9ecd5fcac82b7e93dda5d1a7de7c63810370516e2ef30abb6e6d2fc3050c9b886cf8327efa8dc0484244a3f41e6cdc68efaec57923f39e05d046b8844c42176bb23ed474f4cbf2b318c776d007241a488c924bc378130f8ef4353e03063ebb3b6ae25d99a78693cd60f68d1261f71533c89009d680ccdefd49cc372fa081d7c9d54be1bf0ced40b2b1c7b519722fecbf13549b8fff18b4cb87b4d8cbda4ca03ae328ee8d71e53c3e71b5278b98d4ed9280d723997a6f329f038d1822371ab0cbb8f4b6f91ec162f6d19b1dca74445885135acd745ddfd109aa5153"
-    requiredField= "UserId"
 	loginUrl= "https://glogin.shifen.de/github/login?_returnUrl=https://boot.shifen.de/"
 
-
-[host."mac.shifen.de"]
-	rateLimit={"cap"=100,"quantum"=60}
-	pathConfig =[
-		{path="/api/v2/*",backends=["127.0.0.1:8081"]},
-		{path="/api",backends=["127.0.0.1:8080"]},
-	]
-
-
-[host."el.shifen.de"]
-	root="/Users/xurenlu/Documents/Sites/errorCollect/"
-
-
-[host."applycenter.shifen.de"]
-	backends=["localhost:4005"]
-
-[host."unhtml.shifen.de"]
-	backends=["localhost:3000"]
-
-
-[host."api.shifen.de"]
-	backends=["localhost:3002"]
-
-
-[host."local.shifen.de"]
-	root="/Users/xurenlu/Sites/yance"
-
-[host."prc.shifen.de"]
-	root="/Users/xurenlu/bin/prc/"
-	options = "+indexes"
-
-[host."3000.shifen.de"]
-	backends=["localhost:3000"]
-
-[host."3001.shifen.de"]
-	backends=["localhost:3001"]
-
-[host."5000.shifen.de"]
-	backends=["localhost:5000"]
-
-
-[host."hi.shifen.de"]
-	backends=["localhost:8080"]
-	autoCors = true
-	upstreamHeaders={Host="127.0.0.1"}
-	allowUid = ["githubs://83189@183209"]
-	method="cookie"
-	secret="9949375530af2bb382952c031760e0ed8a6548a1bbdd22e0d3de750fb9e6a786b75435e62b9ecd5fcac82b7e93dda5d1a7de7c63810370516e2ef30abb6e6d2fc3050c9b886cf8327efa8dc0484244a3f41e6cdc68efaec57923f39e05d046b8844c42176bb23ed474f4cbf2b318c776d007241a488c924bc378130f8ef4353e03063ebb3b6ae25d99a78693cd60f68d1261f71533c89009d680ccdefd49cc372fa081d7c9d54be1bf0ced40b2b1c7b519722fecbf13549b8fff18b4cb87b4d8cbda4ca03ae328ee8d71e53c3e71b5278b98d4ed9280d723997a6f329f038d1822371ab0cbb8f4b6f91ec162f6d19b1dca74445885135acd745ddfd109aa5153"
-    requiredField= "userId"
-	loginUrl= "https://glogin.shifen.de/github/login?_returnUrl=https://hi.shifen.de/"
-
-[host."okr.404.ms"]
-    method="authorization"
-	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
-    requiredField= "UserId"
-    loginUrl= "https://glogin.404.ms/wework/login?_returnUrl=https://hi.404.ms/&_returnMethod=Authorization"
-	hashMethod="UrlHash"
-
-
-
-[host."gotapi.404.ms"]
-	backends=["127.0.0.1:5555","127.0.0.1:5566"]
-	headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}
-    method="cookie"
-	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
-    requiredField= "UserId"
-    loginUrl= "https://login.shifen.de/api/login?_rtUrl=https://gotapi.404.ms/"
-	hashMethod="UrlHash"
-	autoCors = true
-
-[host."go.404.ms"]
-	backends=["gotapi.404.ms:3388"]
-	upstreamHeaders={client-testing="2022.2.25"}
-	autoCors = true
-	headers = {content-type="text/html",accept="application/json",x-domain="go.404.ms"}
 
 [host."test.404.ms"]
 	backends=["localhost:3388"]
@@ -106,9 +41,5 @@ secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwof
 		authName="lanyi"
 		authPass="lanyi2027"
 
-[host."grafana.404.ms"]
-	backends=["172.19.14.149:3000"]
-	secret="HelloBabyUooDaysue-wi2nvxfuoiiwgo7weoyfgodiwefegfdfth-j-my-error-being-returnDooAndWhoIsYourDaddyAndYourMummyI-thought-it-was-an-issue-with-jjwt-and-base-64-as-my-error-being-returned-before-my-error-being-returned-bef-my-error-being-returned-bef-was-speaking-of-bits-as-well"
-    requiredField= "UserId"
-    loginUrl= "https://login.shifen.de/api/login?_rtUrl=https://grafana.404.ms/"
+
 

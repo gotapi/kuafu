@@ -158,6 +158,7 @@ func StartHttpService(addr string) {
 	}
 	r.Use(KuafuHeaders())
 	r.Use(KuafuStat())
+	r.Use(KuafuMiddleware())
 	r.Use(RateLimitMiddleware())
 
 	r.GET("/__/kuafu/version", func(c *gin.Context) {
@@ -169,7 +170,7 @@ func StartHttpService(addr string) {
 	openGroup.POST("/hotReload", HandleHotReload)
 	openGroup.GET("/login", HandleLogin)
 	inspectGroup := innerGroup.Group("/inspect")
-	inspectGroup.Use(KuafuValidation())
+	inspectGroup.Use(KuafuDashboardValidation())
 	inspectGroup.GET("/rules", HandleAllRules)
 	inspectGroup.GET("/rule/:host", HandleRule)
 	inspectGroup.GET("/backends", HandleAllBackends)

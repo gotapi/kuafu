@@ -58,15 +58,11 @@ type UpstreamConfig struct {
 	StaticFsConfig
 }
 type SecurityConfig struct {
-	Method        string   `toml:"method"`
-	Secret        string   `json:"-" toml:"secret"`
-	RequiredField string   `toml:"requiredField"`
-	TokenName     string   `toml:"tokenName"`
-	LoginUrl      string   `toml:"loginUrl"`
-	AuthName      string   `toml:"authName"`
-	AuthPass      string   `toml:"authPass"`
-	AllowUid      []string `toml:"allowUid"`
+	Extractors []ExtractorConfig `toml:"extractors"`
+	Validators []ValidatorConfig `toml:"validators"`
+	LoginUrl   string            `toml:"loginUrl"`
 }
+
 type PrefixConfig struct {
 	UpstreamConfig
 	Path string `toml:"path"`
