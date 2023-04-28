@@ -10,6 +10,11 @@ prefix="/_inner/hello2429527/"
 superUser="admin"
 superPass="admin"
 secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsioffdsfsddogfswofwe7r823fdfdsfdsfdsfiiwgo7weoyfgodiwefefdsfdsiofofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwwe7r823fdfdsgsfe542twgoyfgodiwefefdsfdsioofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+handlers=[
+	{ type="dinglogin",config={expires="+3d", domain=".cn.yahoo.com"},entry="/_plugin/dingding" },
+	{ type="websocket",config={},entry="/_plugin/broadcost"},
+	{ type="githubLogin",config={},entry="/_plugin/github/" }
+]
 
 [host."dist.shifen.de"]
 	root="/Users/xurenlu/Sites/write.git/frontend/dist/"

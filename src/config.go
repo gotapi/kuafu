@@ -12,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"io/ioutil"
 	"log"
+	handler2 "main/src/handler"
 	"net/http"
 	"os"
 	"strconv"
@@ -40,6 +41,7 @@ type AppConfig struct {
 type GlobalConfig struct {
 	AppConfig
 	DashConfig
+	Handlers []handler2.Config `toml:"handlers"`
 }
 type KuafuConfig struct {
 	Kuafu GlobalConfig          `toml:"kuafu"`
