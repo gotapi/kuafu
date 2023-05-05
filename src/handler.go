@@ -1,4 +1,4 @@
-package handler
+package main
 
 import (
 	"errors"
@@ -14,47 +14,48 @@ import (
 
 type PluginHandler struct {
 	Name     string
-	Register func(group *gin.RouterGroup, config *Config) error
+	Register func(group *gin.RouterGroup, config HandlerConfig) error
 }
 type Plugin interface {
-	RegisterPlaceholder(r *gin.RouterGroup, config *Config)
+	RegisterPlaceholder(r *gin.RouterGroup, config *HandlerConfig)
 }
 
-type Config struct {
+type HandlerConfig struct {
 	Type     string                 `toml:"type"`
 	Config   map[string]interface{} `toml:"config"`
 	Entry    string                 `toml:"entry"`
 	Method   string                 `toml:"method"`
-	Children []Config               `toml:"children"`
+	Children []HandlerConfig        `toml:"children"`
 }
 
-func RegisterHandlers(r *gin.RouterGroup, config []Config) (bool, error) {
+func RegisterHandlers(r *gin.RouterGroup, config []HandlerConfig) (bool, error) {
+
 	log.Println("handlers register")
 	for _, v := range config {
 		if v.Type == "wework" {
-			weworkHandler.RegisterPlaceholder(r, &v)
+			weworkHandler.RegisterPlaceholder(r, v)
 		}
 		if v.Type == "dingding" {
-			dingdingHandler.RegisterPlaceholder(r, &v)
+			dingdingHandler.RegisterPlaceholder(r, v)
 		}
 		if v.Type == "github" {
-			githubHandler.RegisterPlaceholder(r, &v)
+			githubHandler.RegisterPlaceholder(r, v)
 		}
 	}
 	return true, nil
 }
 
-var githubHandler Plugin = &PluginHandler{Name: "github", Register: GithubRegister}
-var weworkHandler Plugin = &PluginHandler{Name: "wework", Register: WeworkRegister}
+var githubHandler = &PluginHandler{Name: "github", Register: GithubRegister}
+var weworkHandler = &PluginHandler{Name: "wework", Register: WeworkRegister}
 
-func GithubRegister(r *gin.RouterGroup, config *Config) error {
+func GithubRegister(r *gin.RouterGroup, config HandlerConfig) error {
 	return errors.New("unimplemented yet")
 }
 
-func WeworkRegister(r *gin.RouterGroup, config *Config) error {
+func WeworkRegister(r *gin.RouterGroup, config HandlerConfig) error {
 	return errors.New("unimplemented yet")
 }
-func (handler *PluginHandler) RegisterPlaceholder(r *gin.RouterGroup, config *Config) {
+func (handler *PluginHandler) RegisterPlaceholder(r *gin.RouterGroup, config HandlerConfig) {
 	router := r.Group(config.Entry)
 	err := handler.Register(router, config)
 	if err != nil {
@@ -141,7 +142,7 @@ func GuessDefaultDomainSuffix(hostname string) string {
 	return "." + strings.Join(arr[len(arr)-size:], ".")
 }
 
-func NormalizeConfig(config *Config) {
+func NormalizeConfig(config *HandlerConfig) {
 	if config.Config["expire"] == nil {
 		config.Config["expire"] = 86400 * 3
 	}

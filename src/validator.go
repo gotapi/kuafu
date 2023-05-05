@@ -49,15 +49,18 @@ func PrivateIpValidate(c *gin.Context, config *ConfigMap, data *SessionData) (bo
 	return true, nil
 }
 
-// WhiteListValidator @Description: 白名单验证器
-func WhiteListValidator(c *gin.Context, config *ConfigMap, data *SessionData) (bool, error) {
+// InListValidator @Description: 白名单验证器
+func InListValidator(c *gin.Context, config *ConfigMap, data *SessionData) (bool, error) {
 	target := (*config)["target"].(string)
-	targetList := (*config)["list"].([]string)
+	var targetList []string
+	if _, ok := (*config)["list"].([]string); ok {
+		targetList = (*config)["list"].([]string)
+	}
 	if target == "" {
 		return false, errors.New("configuration error:target is empty. contact your administrator please")
 	}
 	if targetList == nil || len(targetList) == 0 {
-		return true, errors.New("configuration error:list is empty. contact your administrator please")
+		return false, errors.New("configuration error:list is empty. contact your administrator please")
 	}
 	var value string
 	value = (*data)[target].(string)

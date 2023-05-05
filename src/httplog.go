@@ -46,7 +46,7 @@ type loggingHandler struct {
 func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	t := time.Now()
 	logger, w := makeLogger(w)
-	url := *req.URL
+	reqUrl := *req.URL
 
 	h.handler.ServeHTTP(w, req)
 	if req.MultipartForm != nil {
@@ -55,7 +55,7 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	params := LogFormatterParams{
 		Request:    req,
-		URL:        url,
+		URL:        reqUrl,
 		TimeStamp:  t,
 		StatusCode: logger.Status(),
 		Size:       logger.Size(),
@@ -230,13 +230,12 @@ func CombinedLoggingHandler(out io.Writer, h http.Handler) http.Handler {
 //
 // Example:
 //
-//  r := mux.NewRouter()
-//  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-//  	w.Write([]byte("This is a catch-all route"))
-//  })
-//  loggedRouter := handlers.LoggingHandler(os.Stdout, r)
-//  http.ListenAndServe(":1123", loggedRouter)
-//
+//	r := mux.NewRouter()
+//	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+//		w.Write([]byte("This is a catch-all route"))
+//	})
+//	loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+//	http.ListenAndServe(":1123", loggedRouter)
 func LoggingHandler(out io.Writer, h http.Handler) http.Handler {
 	return loggingHandler{out, h, writeLog}
 }

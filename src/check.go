@@ -9,6 +9,13 @@ import (
 
 func KuafuMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		for _, v := range kuafuConfig.Kuafu.Handlers {
+			if strings.HasPrefix(path, v.Entry) {
+				c.Next()
+				return
+			}
+		}
 		hostConfig, err := FetchHostConfig(c)
 		if err != nil {
 			log.Printf("got error from fetchHostConfig:%v", err)
@@ -78,6 +85,7 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 			}
 		}
 	}
+	log.Printf("sessionData:%v", sessionData)
 
 	var score = 0
 	for _, validator := range hostConfig.Validators {
@@ -97,7 +105,7 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 			result = tmp
 
 		case "in-list":
-			tmp, err := WhiteListValidator(c, &validator.Config, sessionData)
+			tmp, err := InListValidator(c, &validator.Config, sessionData)
 			if err != nil {
 				log.Printf("got error from whitelist validator:%v", err)
 			}
@@ -108,12 +116,15 @@ func doChecks(c *gin.Context, hostConfig *HostConfig) {
 				log.Printf("got error from basic validator:%v", err)
 			}
 			result = tmp
+		case "all-true":
+			result = true
 		}
+
 		if result {
 			score += validator.Weight
 		}
 	}
-	if score > 0 {
+	if score >= 0 {
 		c.Next()
 	} else {
 		handle403(hostConfig.LoginUrl, c)

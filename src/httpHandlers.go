@@ -277,7 +277,7 @@ func KuafuDashboardValidation() gin.HandlerFunc {
 
 }
 func handle403(url string, c *gin.Context) {
-	currentUrl := "https://" + c.Request.Host + c.Request.URL.String()
+	currentUrl := "http://" + c.Request.Host + c.Request.URL.String()
 	url = strings.ReplaceAll(url, "%CURRENT_URL%", currentUrl)
 	requestWith := c.Request.Header.Get("X-Requested-With")
 	if requestWith == "XMLHttpRequest" {

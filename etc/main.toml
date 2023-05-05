@@ -1,5 +1,5 @@
 [kuafu]
-listenAt="0.0.0.0:5577"
+listenAt="0.0.0.0:5588"
 consulAddr="localhost:8500"
 trustProxies=["127.0.0.1"]
 trustedPlatform="X-Real-IP"
@@ -9,44 +9,38 @@ fallback="127.0.0.1:3000"
 prefix="/_inner/hello2429527/"
 superUser="admin"
 superPass="admin"
-secret="893287rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsioffdsfsddogfswofwe7r823fdfdsfdsfdsfiiwgo7weoyfgodiwefefdsfdsiofofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwwe7r823fdfdsgsfe542twgoyfgodiwefefdsfdsioofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
+secret="8932952787rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsioffdsfsddogfswofwe7r823fdfdsfdsfdsfiiwgo7weoyfgodiwefefdsfdsiofofwe7r823fdfdsiiwgo7weoyfgodiwefefdsfdsiofwofwe7r823fdfdsgoyfgodiwefefdsfdsiofwwe7r823fdfdsgsfe542twgoyfgodiwefefdsfdsioofwe7r823fdfdsgoyfdsfsdfdsfoguycxlfheyo726rewfdsgdsyiufdsfdsfdsf"
 handlers=[
-	{ type="dinglogin",config={expires="+3d", domain=".cn.yahoo.com"},entry="/_plugin/dingding" },
-	{ type="websocket",config={},entry="/_plugin/broadcost"},
-	{ type="githubLogin",config={},entry="/_plugin/github/" }
+	{ type="dingding",config={key="dingjaleikitg0yo7opk", jwtSecret="8932952787rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofw",secret="_S53dZiphIkqfH-qZdLm8gGM004ov7ZvDpzOxAZe0pPgzvwwrcdJNYTvDlQ00L9s",corpId="2535257623"},entry="/_plugin/dingding" },
+	{ type="github",config={},entry="/_plugin/github/" },
+	{ type="wework",config={},entry="/_plugin/wework/" }
 ]
 
 [host."dist.shifen.de"]
 	root="/Users/xurenlu/Sites/write.git/frontend/dist/"
 
-[host."boot.shifen.de"]
+[host."local.shifen.de"]
 	extractors = [
-		{type="jwt",method="insert",config={secret="hellobabyWhatareyoudoing",source="header",from="Authorization"}},
+		{type="jwt",method="insert",config={secret="8932952787rvnlflidsfdsyuf2nvxfuoiiwgo7weoyfgodiwefegfdffdsfdsiofwefdogfsfwofw",source="cookie",from="_wjToken"}},
 		{type="copy",method="update",config={from="_wjId",to="id"}},
 		{type="copy",method="update",config={from="_wjName",to="name"}},
 		{type="header",method="update",config={from="X-Real-IP",to="_ip"}},
-		{type="cookie",method="update",config={from="X-Real-IP",to="_ip"}},
+		{type="cookie",method="update",config={from="_wjId",to="id"}},
 		{type="ip",method="update",config={to="remote_ip"}}]
 	validators=[
+		{type="all-true",weight=-1},
 		{type="basic",weight=10000,config={"username"="admin","password"="admin"}},
 		{type="in-list",weight=10000,config={"list"=["abcd","efghi"],target="_wjId"}},
 		{type="in-list",weight=-100000,config={"list"=["badgues-1","budguys-2"],target="_wjId"}},
-		{type="blacklist",weight=100,config={list=["abcd","efghi"],target="_ip"}},
+		{type="in-list",weight=100,config={list=["abcd","efghi"],target="_ip"}},
 		{type="private-ip",weight=100},
-		{type="not-empty",weight=100,config={target="_wjId"}}
+		{type="non-empty",weight=100,config={target="Email"}}
 	]
+	loginUrl= "http://boot.shifen.de:5588/_plugin/dingding/login?_returnUrl=%CURRENT_URL%"
+
+
+[host."boot.shifen.de"]
 	root="/Users/xurenlu/Sites/bootshiro/src/main/resources/static"
-	loginUrl= "https://glogin.shifen.de/github/login?_returnUrl=https://boot.shifen.de/"
-
-
-[host."test.404.ms"]
-	backends=["localhost:3388"]
-	upstreamHeaders={client-testing="2022.2.25"}
-	autoCors = true
-		headers = {content-type="text/html",accept="application/json",x-Support="renlu/1.2.1"}
-		method="basic"
-		authName="lanyi"
-		authPass="lanyi2027"
 
 
 

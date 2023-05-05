@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
 	"github.com/mohae/deepcopy"
+	"log"
 	"net"
 	"strings"
 )
@@ -43,18 +44,21 @@ func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (b
 	if err != nil {
 		return false, err
 	}
-	for k, v := range *parsedJwt {
+	found := false
+
+	for k, v := range parsedJwt {
+		log.Printf("new field %s:%s", k, v)
 		if method == "update" {
 			(*data)[k] = v
-			return true, nil
+			found = true
 		} else {
 			if _, ok := (*data)[k]; !ok {
 				(*data)[k] = v
-				return true, nil
+				found = true
 			}
 		}
 	}
-	return false, nil
+	return found, nil
 }
 
 func IpExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
@@ -152,17 +156,20 @@ func CookieExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData)
 	return false, nil
 }
 
-func ParseJwt(tokenString string, secret string) (*jwt.MapClaims, error) {
+func ParseJwt(tokenString string, secret string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(secret), nil
 	})
-	if claims, ok := token.Claims.(*jwt.MapClaims); ok && token.Valid {
+	if err != nil {
+		return nil, err
+	}
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		return claims, nil
 	} else {
 		fmt.Printf("invalid token:%v,%v\n", token, token.Claims)
-		return nil, err
+		return nil, errors.New("invalid token")
 	}
 }

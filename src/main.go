@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"log"
-	"main/src/handler"
 	"net/http"
 	"os"
 	"strings"
@@ -162,7 +161,7 @@ func StartHttpService(addr string) {
 	r.Use(KuafuMiddleware())
 	r.Use(RateLimitMiddleware())
 
-	registerHandlers, err := handler.RegisterHandlers(&r.RouterGroup, kuafuConfig.Kuafu.Handlers)
+	registerHandlers, err := RegisterHandlers(&r.RouterGroup, kuafuConfig.Kuafu.Handlers)
 	if err != nil {
 		log.Printf("error while registering handlers :%v", err)
 	}
@@ -208,10 +207,10 @@ func StartHttpService(addr string) {
 			}
 		}(f)
 		err = http.ListenAndServe(addr,
-			LoggingHandler(f, r.Handler()))
+			CombinedLoggingHandler(f, r.Handler()))
 	} else {
 		err = http.ListenAndServe(addr,
-			LoggingHandler(os.Stdout, r.Handler()))
+			CombinedLoggingHandler(os.Stdout, r.Handler()))
 	}
 
 	CheckErr(err)
