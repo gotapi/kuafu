@@ -22,7 +22,7 @@ func KuafuMiddleware() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		doChecks(c, &hostConfig)
+		DoChecks(c, &hostConfig)
 	}
 }
 
@@ -52,7 +52,7 @@ func FetchHostConfig(c *gin.Context) (HostConfig, error) {
 		return hostRule, errors.New("rule not found")
 	}
 }
-func doChecks(c *gin.Context, hostConfig *HostConfig) {
+func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 
 	sessionData := &SessionData{}
 	for _, config := range hostConfig.Extractors {
