@@ -19,7 +19,7 @@ pathConfig=[
 ]
 `
 	var config HostConfig
-	_, err := toml.Decode(string(str), &config)
+	_, err := toml.Decode(str, &config)
 	if err != nil {
 		log.Fatalf("failed,%v", err)
 	}
