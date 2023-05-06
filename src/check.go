@@ -54,7 +54,7 @@ func FetchHostConfig(c *gin.Context) (HostConfig, error) {
 }
 func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 
-	sessionData := &SessionData{}
+	sessionData := &MapData{}
 	for _, config := range hostConfig.Extractors {
 		switch config.Type {
 		case "jwt":

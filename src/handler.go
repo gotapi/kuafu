@@ -116,13 +116,6 @@ func getExpireValue(data map[string]interface{}) (int64, error) {
 	}
 }
 
-func OneDayAfter() int64 {
-	timeAfterDay, _ := time.ParseDuration("+24h")
-	current := time.Now()
-	timeAfter := current.Add(timeAfterDay)
-	return timeAfter.Unix()
-}
-
 func GuessDefaultDomainSuffix(hostname string) string {
 	parts := strings.Split(hostname, ".")
 	tld := ""
@@ -140,10 +133,4 @@ func GuessDefaultDomainSuffix(hostname string) string {
 		return hostname
 	}
 	return "." + strings.Join(arr[len(arr)-size:], ".")
-}
-
-func NormalizeConfig(config *HandlerConfig) {
-	if config.Config["expire"] == nil {
-		config.Config["expire"] = 86400 * 3
-	}
 }

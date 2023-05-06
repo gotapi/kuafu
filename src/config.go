@@ -248,7 +248,6 @@ func loadConfig() error {
 		return logGitConfig(configFile, privateKeyFile, sshPassword)
 	}
 	return loadFromDisk(configFile)
-
 }
 
 func afterLoad() {

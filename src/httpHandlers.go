@@ -277,7 +277,15 @@ func KuafuDashboardValidation() gin.HandlerFunc {
 
 }
 func handle403(url string, c *gin.Context) {
-	currentUrl := "http://" + c.Request.Host + c.Request.URL.String()
+	defaultProto := "http"
+	protocolInHeader := c.Request.Header.Get("X-Forwarded-Proto")
+	if protocolInHeader != "" {
+		defaultProto = protocolInHeader
+	}
+	if c.Request.TLS != nil {
+		defaultProto = "https"
+	}
+	currentUrl := defaultProto + "://" + c.Request.Host + c.Request.URL.String()
 	url = strings.ReplaceAll(url, "%CURRENT_URL%", currentUrl)
 	requestWith := c.Request.Header.Get("X-Requested-With")
 	if requestWith == "XMLHttpRequest" {

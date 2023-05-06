@@ -29,7 +29,7 @@ config={"username"="admin","password"="pass"}
 	}
 	config := ValidatorConfig{
 		Type: "basic",
-		Config: ConfigMap{
+		Config: MapData{
 			"username": "admin",
 			"password": "123456",
 		},
@@ -37,7 +37,7 @@ config={"username"="admin","password"="pass"}
 	if configFromToml.Type != config.Type {
 		t.Fail()
 	}
-	data := make(SessionData)
+	data := make(MapData)
 	c := makeGinContext()
 
 	r := http.Request{Header: map[string][]string{}}
@@ -58,12 +58,12 @@ func TestInListValidator(t *testing.T) {
 
 	inListConfig := ValidatorConfig{
 		Type: "in-list",
-		Config: ConfigMap{
+		Config: MapData{
 			"list":   []string{"foo", "bar"},
 			"target": "username",
 		},
 	}
-	data := make(SessionData)
+	data := make(MapData)
 	data["username"] = "foo"
 
 	validated, err := InListValidator(nil, &inListConfig.Config, &data)
@@ -92,7 +92,7 @@ func TestJwtExtractor(t *testing.T) {
 	jwtConfig := ExtractorConfig{
 		Type:   "jwt",
 		Method: "insert",
-		Config: ConfigMap{
+		Config: MapData{
 			"secret": secret,
 			"source": "header",
 			"from":   "Authorization",
@@ -100,7 +100,7 @@ func TestJwtExtractor(t *testing.T) {
 	}
 
 	c := makeGinContext()
-	data := make(SessionData)
+	data := make(MapData)
 
 	r := http.Request{Header: map[string][]string{}}
 	expiredAt := time.Now().Add(time.Second * 3600).Unix()
@@ -150,5 +150,66 @@ func TestJwtExtractor(t *testing.T) {
 	if extracted {
 		t.Fail()
 	}
+}
 
+func jwtEncodeAndDecode(t *testing.T, secret string) {
+	token, err := SignJwt("renlu", "id", "fake.any@404.ms", "renlu", time.Now().Add(time.Second*3600).Unix(), secret)
+	if err != nil {
+		t.Fatalf("sign jwt failed: %s", err.Error())
+	}
+	claims, err := ParseJwt(token, secret)
+	if err != nil {
+		t.Fatalf("parse jwt failed: %s", err.Error())
+	}
+	if claims["UserId"] != "id" {
+		t.Fatalf("parse jwt failed: claims['UserId'] should be 'id'")
+	}
+	// update the token ,and decode should fail
+	token = token + "i"
+	claims, err = ParseJwt(token, secret)
+	if err == nil {
+		t.Fatalf("jwt should failed if we modify the token")
+	}
+}
+
+// write test for jwt sign
+func TestJwtSign(t *testing.T) {
+	secretLong := RandomString(64)
+	arr := []string{secretLong, "short", ""}
+	for _, secret := range arr {
+		jwtEncodeAndDecode(t, secret)
+	}
+
+}
+
+func TestNonEmptyValidator(t *testing.T) {
+	nonEmptyConfig := ValidatorConfig{
+		Type: "non-empty",
+		Config: MapData{
+			"target": "username",
+		},
+	}
+	data := make(MapData)
+	data["username"] = "foo"
+
+	validated, err := NonEmptyValidator(nil, &nonEmptyConfig.Config, &data)
+	if err != nil {
+		t.Fail()
+	}
+	if !validated {
+		t.Fail()
+	}
+	data["username"] = ""
+	validated, err = NonEmptyValidator(nil, &nonEmptyConfig.Config, &data)
+
+	if validated {
+		t.Fail()
+	}
+
+	delete(data, "username")
+	validated, err = NonEmptyValidator(nil, &nonEmptyConfig.Config, &data)
+
+	if validated {
+		t.Fail()
+	}
 }

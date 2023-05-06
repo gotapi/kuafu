@@ -12,12 +12,12 @@ import (
 )
 
 type ExtractorConfig struct {
-	Type   string    `toml:"type"`
-	Method string    `tom:"method"`
-	Config ConfigMap `toml:"config"`
+	Type   string  `toml:"type"`
+	Method string  `tom:"method"`
+	Config MapData `toml:"config"`
 }
 
-func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *MapData) (bool, error) {
 	secret := config.Config["secret"].(string)
 	source := strings.ToLower(config.Config["source"].(string))
 	method := strings.ToLower(config.Method)
@@ -61,7 +61,7 @@ func JwtExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (b
 	return found, nil
 }
 
-func IpExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+func IpExtractor(c *gin.Context, config *ExtractorConfig, data *MapData) (bool, error) {
 	ip := net.ParseIP(c.ClientIP())
 	ipStr := ip.To4().String()
 	fieldName := config.Config["to"].(string)
@@ -80,7 +80,7 @@ func IpExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bo
 	return false, nil
 }
 
-func CopyExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+func CopyExtractor(c *gin.Context, config *ExtractorConfig, data *MapData) (bool, error) {
 	from := config.Config["from"].(string)
 	toField := config.Config["to"].(string)
 	if from == "" {
@@ -109,7 +109,7 @@ func CopyExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (
 	return false, nil
 }
 
-func HeaderExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+func HeaderExtractor(c *gin.Context, config *ExtractorConfig, data *MapData) (bool, error) {
 	from := config.Config["from"].(string)
 	toField := config.Config["to"].(string)
 	if from == "" {
@@ -131,7 +131,7 @@ func HeaderExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData)
 	return false, nil
 }
 
-func CookieExtractor(c *gin.Context, config *ExtractorConfig, data *SessionData) (bool, error) {
+func CookieExtractor(c *gin.Context, config *ExtractorConfig, data *MapData) (bool, error) {
 	from := config.Config["from"].(string)
 	toField := config.Config["to"].(string)
 	if from == "" {
