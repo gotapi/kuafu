@@ -38,6 +38,7 @@ There are two matching method:
 - [x] try_files support
 - [ ] 前缀匹配
 - [ ] 管理界面UI
+- [ ] gin标准的cors插件引入
 - [x] validator 中添加正则校验
 - [ ] ~~域名匹配尝试采用正则匹配。~~
 - [ ] ~~ 规整报错，分级写入不同的日志文件。~~

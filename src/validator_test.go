@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-type skippedNode struct {
-	path        string
-	paramsCount int16
-}
-
 func makeGinContext() gin.Context {
 	return gin.Context{}
 }
