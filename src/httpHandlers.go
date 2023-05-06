@@ -114,9 +114,10 @@ func KuafuProxy(c *gin.Context) {
 		return
 	}
 	ip := c.ClientIP()
-	upstreamConfig := hostRule.UpstreamConfig
+	//upstreamConfig := hostRule.UpstreamConfig
+	upstreamConfig := pathBasedUpstream(hostRule, r)
 	//根据 url.path 查到的静态文件服务
-	if len(hostRule.UpstreamConfig.Root) > 0 {
+	if len(upstreamConfig.Root) > 0 {
 		HandleStatic("/", http.Dir(upstreamConfig.Root), w, r, upstreamConfig.StaticFsConfig)
 		return
 	}
@@ -125,7 +126,7 @@ func KuafuProxy(c *gin.Context) {
 		HandleStatic("/", http.Dir(hostRule.Root), w, r, hostRule.UpstreamConfig.StaticFsConfig)
 		return
 	}
-	backendHashMethod := hostRule.UpstreamConfig.HashMethod
+	backendHashMethod := upstreamConfig.HashMethod
 	if backendHashMethod == "" {
 		backendHashMethod = RandHash
 	}

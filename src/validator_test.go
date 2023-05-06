@@ -213,3 +213,29 @@ func TestNonEmptyValidator(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestRegexpValidator(t *testing.T) {
+	nonEmptyConfig := ValidatorConfig{
+		Type: "regexp",
+		Config: MapData{
+			"target": "username",
+			"regexp": "^[a-zA-Z0-9_]{3,20}$",
+		},
+	}
+	data := make(MapData)
+	data["username"] = "foo"
+
+	validated, err := RegexpValidator(nil, &nonEmptyConfig.Config, &data)
+	if err != nil {
+		t.Fail()
+	}
+	if !validated {
+		t.Fail()
+	}
+	data["username"] = "foo?"
+	validated, err = RegexpValidator(nil, &nonEmptyConfig.Config, &data)
+
+	if validated {
+		t.Fail()
+	}
+}

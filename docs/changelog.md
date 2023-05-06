@@ -36,6 +36,9 @@ There are two matching method:
 ```
 
 - [x] try_files support
+- [ ] 前缀匹配
+- [ ] 管理界面UI
+- [x] validator 中添加正则校验
 - [ ] ~~域名匹配尝试采用正则匹配。~~
 - [ ] ~~ 规整报错，分级写入不同的日志文件。~~
 - [ ] fastcgi支持
@@ -44,7 +47,7 @@ There are two matching method:
 - [ ] 在authorization模式下，token改成从服务端交换到而不是直接给出。
 - [ ] login地址试验IP/cookie次数防攻击模式。
 - [ ] 拦截指定IP/UA的请求;
-- [ ] 支持IP白名单认证;
+- [x] 支持IP白名单认证;
 - [ ] 提供一个ruby脚本，检测配置是否冲突或有问题;
 - [ ] 集成 https://github.com/yuin/gopher-lua
 - [ ] 处理双斜杠问题

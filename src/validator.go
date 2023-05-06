@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net"
+	"regexp"
 	"strconv"
 )
 
@@ -97,4 +98,15 @@ func NonEmptyValidator(c *gin.Context, config *MapData, data *MapData) (bool, er
 		return false, errors.New("target is empty")
 	}
 	return true, nil
+}
+
+func RegexpValidator(c *gin.Context, config *MapData, data *MapData) (bool, error) {
+	target := strOfMapDataItem(config, "target")
+	must := strOfMapDataItem(config, "regexp")
+	if must == "" {
+		return false, errors.New("configuration error:regexp is empty. contact your administrator please")
+	}
+	value := strOfMapDataItem(data, target)
+	reg := regexp.MustCompile(must)
+	return reg.MatchString(value), nil
 }

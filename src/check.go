@@ -116,6 +116,12 @@ func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 				log.Printf("got error from basic validator:%v", err)
 			}
 			result = tmp
+		case "regexp":
+			tmp, err := RegexpValidator(c, &validator.Config, sessionData)
+			if err != nil {
+				log.Printf("got error from regexp validator:%v", err)
+			}
+			result = tmp
 		case "all-true":
 			result = true
 		}
