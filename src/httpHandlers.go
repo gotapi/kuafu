@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -152,7 +151,7 @@ func KuafuProxy(c *gin.Context) {
 			return
 		}
 	}
-	if "true" == strings.ToLower(r.Header.Get("DEBUG-UPSTREAM")) {
+	if "true" == strings.ToLower(r.Header.Get("KUAFU-DEBUG")) {
 		http.Error(w, backend, 200)
 		return
 	}
@@ -160,15 +159,14 @@ func KuafuProxy(c *gin.Context) {
 	peer, err := net.Dial("tcp", backend)
 	if err != nil {
 		log.Printf("dial upstream error:%v", err)
-		http.Error(w, "dial upstream failed", 500)
 		failedRequest.Inc()
-		WriteOutput([]byte(fmt.Sprintf("dial upstream error:%v", err)), w)
+		c.AbortWithError(500, err)
 		return
 	}
 	if err := r.Write(peer); err != nil {
 		log.Printf("write request to upstream error :%v", err)
 		failedRequest.Inc()
-		http.Error(w, "write request to upstream error", 500)
+		c.AbortWithError(500, err)
 		return
 	}
 

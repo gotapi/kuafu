@@ -144,11 +144,11 @@ func ForceUpdateAccessTokenByKey(key string, secret string) (string, error) {
 	return tokenResp.AccessToken, nil
 }
 func RandomString(len int) string {
-	bytes := make([]byte, len)
-	if _, err := rand.Read(bytes); err != nil {
+	_bytes := make([]byte, len)
+	if _, err := rand.Read(_bytes); err != nil {
 		return "-"
 	}
-	return hex.EncodeToString(bytes)
+	return hex.EncodeToString(_bytes)
 }
 func GetTimeStamp() int64 {
 	return time.Now().UnixNano() / 1e6

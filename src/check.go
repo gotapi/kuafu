@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -96,11 +98,17 @@ func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 			if err != nil {
 				log.Printf("got error from ip validator:%v", err)
 			}
+			if tmp {
+				log.Printf("private ip:%v,result:%v", c.ClientIP(), tmp)
+			}
 			result = tmp
 		case "non-empty":
 			tmp, err := NonEmptyValidator(c, &validator.Config, sessionData)
 			if err != nil {
 				log.Printf("got error from non-empty validator:%v", err)
+			}
+			if tmp {
+				log.Printf("non-empty:%v,result:%v", sessionData, tmp)
 			}
 			result = tmp
 
@@ -109,17 +117,26 @@ func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 			if err != nil {
 				log.Printf("got error from whitelist validator:%v", err)
 			}
+			if tmp {
+				log.Printf("in-list:%v,result:%v", sessionData, tmp)
+			}
 			result = tmp
 		case "basic":
 			tmp, err := BasicAuthValidator(c, &validator.Config, sessionData)
 			if err != nil {
 				log.Printf("got error from basic validator:%v", err)
 			}
+			if tmp {
+				log.Printf("basic:%v,result:%v", sessionData, tmp)
+			}
 			result = tmp
 		case "regexp":
 			tmp, err := RegexpValidator(c, &validator.Config, sessionData)
 			if err != nil {
 				log.Printf("got error from regexp validator:%v", err)
+			}
+			if tmp {
+				log.Printf("regexp:%v,result:%v", sessionData, tmp)
 			}
 			result = tmp
 		case "all-true":
@@ -128,6 +145,13 @@ func DoChecks(c *gin.Context, hostConfig *HostConfig) {
 
 		if result {
 			score += validator.Weight
+		}
+	}
+	if "true" == strings.ToLower(c.Request.Header.Get("KUAFU-DEBUG")) {
+		c.Writer.Header().Set("X-Kuafu-Score", strconv.Itoa(score))
+		jsonStr, er := json.Marshal(sessionData)
+		if er == nil {
+			c.Writer.Header().Set("X-Kuafu-Session", string(jsonStr))
 		}
 	}
 	if score >= 0 {

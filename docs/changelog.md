@@ -16,8 +16,8 @@
 ## 1.3.1
 
 #### new feature
-Header <kbd>DEBUG-UPSTREAM</kbd> added .
-when header <kbd>DEBUG-UPSTREAM</kbd> found, 
+Header <kbd>KUAFU-DEBUG</kbd> added .
+when header <kbd>KUAFU-DEBUG</kbd> found, 
 kuafu return backend directly.
 
 #### path based configure
