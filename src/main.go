@@ -158,7 +158,16 @@ func StartHttpService(addr string) {
 	}
 	r.Use(KuafuHeaders())
 	r.Use(KuafuStat())
+	r.Use(KuafuMiddleware())
 	r.Use(RateLimitMiddleware())
+
+	registerHandlers, err := RegisterHandlers(&r.RouterGroup, kuafuConfig.Kuafu.Handlers)
+	if err != nil {
+		log.Printf("error while registering handlers :%v", err)
+	}
+	if !registerHandlers {
+		log.Printf("register handlers failed")
+	}
 
 	r.GET("/__/kuafu/version", func(c *gin.Context) {
 		c.String(http.StatusOK, "kuafu "+version)
@@ -169,7 +178,7 @@ func StartHttpService(addr string) {
 	openGroup.POST("/hotReload", HandleHotReload)
 	openGroup.GET("/login", HandleLogin)
 	inspectGroup := innerGroup.Group("/inspect")
-	inspectGroup.Use(KuafuValidation())
+	inspectGroup.Use(KuafuDashboardValidation())
 	inspectGroup.GET("/rules", HandleAllRules)
 	inspectGroup.GET("/rule/:host", HandleRule)
 	inspectGroup.GET("/backends", HandleAllBackends)
@@ -198,10 +207,10 @@ func StartHttpService(addr string) {
 			}
 		}(f)
 		err = http.ListenAndServe(addr,
-			LoggingHandler(f, r.Handler()))
+			CombinedLoggingHandler(f, r.Handler()))
 	} else {
 		err = http.ListenAndServe(addr,
-			LoggingHandler(os.Stdout, r.Handler()))
+			CombinedLoggingHandler(os.Stdout, r.Handler()))
 	}
 
 	CheckErr(err)

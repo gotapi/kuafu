@@ -40,6 +40,7 @@ type AppConfig struct {
 type GlobalConfig struct {
 	AppConfig
 	DashConfig
+	Handlers []HandlerConfig `toml:"handlers"`
 }
 type KuafuConfig struct {
 	Kuafu GlobalConfig          `toml:"kuafu"`
@@ -58,15 +59,11 @@ type UpstreamConfig struct {
 	StaticFsConfig
 }
 type SecurityConfig struct {
-	Method        string   `toml:"method"`
-	Secret        string   `json:"-" toml:"secret"`
-	RequiredField string   `toml:"requiredField"`
-	TokenName     string   `toml:"tokenName"`
-	LoginUrl      string   `toml:"loginUrl"`
-	AuthName      string   `toml:"authName"`
-	AuthPass      string   `toml:"authPass"`
-	AllowUid      []string `toml:"allowUid"`
+	Extractors []ExtractorConfig `toml:"extractors"`
+	Validators []ValidatorConfig `toml:"validators"`
+	LoginUrl   string            `toml:"loginUrl"`
 }
+
 type PrefixConfig struct {
 	UpstreamConfig
 	Path string `toml:"path"`
@@ -251,7 +248,6 @@ func loadConfig() error {
 		return logGitConfig(configFile, privateKeyFile, sshPassword)
 	}
 	return loadFromDisk(configFile)
-
 }
 
 func afterLoad() {
